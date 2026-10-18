@@ -3,6 +3,7 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { read, type Yao } from '../lib/hexagram'
 import { ambient } from '../lib/ambient'
 
@@ -322,7 +323,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   renderer.toneMappingExposure = theme.exposure
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  const targetPixelRatio = Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15)
+  const targetPixelRatio = Math.min(window.devicePixelRatio || 1, tier === 'high' ? 2 : tier === 'medium' ? 1.6 : 1.2)
   renderer.setPixelRatio(Math.min(targetPixelRatio, 1))
 
   const scene = new THREE.Scene()
@@ -397,12 +398,21 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   // 石径（逐块石板）
-  const slabMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#9c9384' : '#4a4842', roughness: 0.92 })
-  for (let i = 0; i < 9; i++) {
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(1.9 + Math.random() * 0.2, 0.05, 0.62), slabMaterial)
-    slab.position.set((Math.random() - 0.5) * 0.12, 0.03, -3.0 + i * 0.86)
-    slab.rotation.y = (Math.random() - 0.5) * 0.04
-    scene.add(slab)
+  // 院中散石与矮丛
+  const rockMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#7d776a' : '#3a3a35', roughness: 1 })
+  for (const [x, z, s] of [[-3.4, -1.2, 0.34], [-2.6, 0.4, 0.22], [3.3, -1.6, 0.3], [2.7, 0.8, 0.2]] as const) {
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), rockMaterial)
+    rock.position.set(x, s * 0.5, z)
+    rock.rotation.set(Math.random(), Math.random(), Math.random())
+    rock.scale.set(1, 0.7, 0.9)
+    scene.add(rock)
+  }
+  const shrubMaterial = new THREE.MeshStandardMaterial({ color: 0x24301f, roughness: 1 })
+  for (const [x, z, s] of [[-4.1, -2.2, 0.42], [4.0, -2.4, 0.38]] as const) {
+    const shrub = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), shrubMaterial)
+    shrub.position.set(x, s * 0.8, z)
+    shrub.scale.set(1, 0.8, 1)
+    scene.add(shrub)
   }
 
   // 门后的纵深：远墙 + 屋脊剪影 + 暖光
@@ -525,16 +535,16 @@ function start(canvas: HTMLCanvasElement): () => void {
     return texture
   }
 
-  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.webp', true, 0.11, 0.11)
-  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.webp', false, 0.11, 0.11)
-  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.webp', false, 0.11, 0.11)
+  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.webp', true, 0.34, 0.34)
+  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.webp', false, 0.34, 0.34)
+  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.webp', false, 0.34, 0.34)
   wallMaterial.color.set(theme.daylight ? '#ffffff' : '#9a9a9a')
   wallMaterial.normalScale = new THREE.Vector2(0.35, 0.35)
   wallMaterial.needsUpdate = true
 
-  groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 18, 18)
-  groundMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 18, 18)
-  groundMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 18, 18)
+  groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 30, 30)
+  groundMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 30, 30)
+  groundMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 30, 30)
   groundMaterial.color.set(theme.daylight ? '#cfc9bb' : '#6a6a66')
   groundMaterial.needsUpdate = true
 
@@ -580,8 +590,27 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 石桌 · 铜钱 · 卦爻 ----------
   const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 1.3), altarMaterial)
-  altar.position.set(0, 0.35, 2.45)
+  const tableWood = new THREE.MeshStandardMaterial({ color: 0x3d3024, roughness: 0.78 })
+  const altar = new THREE.Group()
+  const tableTop = new THREE.Mesh(new RoundedBoxGeometry(1.98, 0.1, 1.28, 3, 0.018), altarMaterial)
+  tableTop.position.y = 0.65
+  altar.add(tableTop)
+  const apron = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.16, 1.16), tableWood)
+  apron.position.y = 0.52
+  altar.add(apron)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.44, 0.13), tableWood)
+      leg.position.set(sx * 0.8, 0.22, sz * 0.47)
+      altar.add(leg)
+    }
+  }
+  for (const sz of [-1, 1]) {
+    const stretcher = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.07, 0.08), tableWood)
+    stretcher.position.set(0, 0.14, sz * 0.47)
+    altar.add(stretcher)
+  }
+  altar.position.set(0, 0, 2.45)
   scene.add(altar)
 
   const tableLight = new THREE.PointLight(0xffd9a0, theme.daylight ? 3.2 : 6.5, 5.5, 2)
@@ -941,7 +970,7 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0x2f4a52 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0x1f1c18 })
     const bars: THREE.Mesh[] = []
     if (yang) {
       bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.012, 0.04), material))

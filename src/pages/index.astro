@@ -2,7 +2,7 @@
 import '@fontsource/cormorant-garamond/400.css'
 import '@fontsource/cormorant-garamond/600.css'
 const base = import.meta.env.BASE_URL
-const displayFont = `@font-face{font-family:'Mi Lan Ting';src:url('${base}fonts/milanting-subset.woff2') format('woff2');font-display:swap;}`
+const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}fonts/noto-serif-sc-subset.woff2') format('woff2');font-display:swap;}`
 ---
 
 <!DOCTYPE html>
@@ -18,7 +18,7 @@ const displayFont = `@font-face{font-family:'Mi Lan Ting';src:url('${base}fonts/
     <meta name="theme-color" content="#0d141a" />
     <link rel="icon" href={`${base}/favicon.svg`} />
     <style set:html={displayFont}></style>
-    <link rel="preload" href={`${base}fonts/milanting-subset.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`${base}fonts/noto-serif-sc-subset.woff2`} as="font" type="font/woff2" crossorigin />
     <style>
       :root {
         --ink: #e8e2d6;
@@ -31,7 +31,7 @@ const displayFont = `@font-face{font-family:'Mi Lan Ting';src:url('${base}fonts/
       body {
         background: var(--bg);
         color: var(--ink);
-        font-family: 'Cormorant Garamond', 'Mi Lan Ting', 'Songti SC', serif;
+        font-family: 'Cormorant Garamond', 'Noto Serif SC', 'Songti SC', serif;
         overflow: hidden;
       }
 
@@ -45,7 +45,7 @@ const displayFont = `@font-face{font-family:'Mi Lan Ting';src:url('${base}fonts/
           linear-gradient(180deg, #0b1218 0%, #0d141a 55%, #080d11 100%);
         transition: opacity .8s ease;
       }
-      #poster h1, .result-card h2, .seal { font-family: 'Mi Lan Ting', 'Songti SC', serif; }
+      #poster h1, .result-card h2, .seal { font-family: 'Noto Serif SC', 'Songti SC', serif; }
       #poster h1 {
         font-size: clamp(2rem, 6vw, 3.4rem);
         font-weight: 400;

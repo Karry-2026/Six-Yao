@@ -610,12 +610,18 @@ function start(canvas: HTMLCanvasElement): () => void {
   const ember = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd4642a }))
   ember.position.set(-0.72, ALTAR_TOP + 0.085, 2.78)
   scene.add(ember)
+  for (let i = 0; i < 3; i++) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 6), censerMaterial)
+    const angle = (i / 3) * Math.PI * 2
+    leg.position.set(-0.72 + Math.cos(angle) * 0.07, ALTAR_TOP + 0.005, 2.78 + Math.sin(angle) * 0.07)
+    scene.add(leg)
+  }
   const emberLight = new THREE.PointLight(0xff8a3d, 1.6, 1.1, 2)
   emberLight.position.set(-0.72, ALTAR_TOP + 0.12, 2.78)
   scene.add(emberLight)
 
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, ALTAR_TOP + 0.05, 2.4)
+  lineGroup.position.set(0, ALTAR_TOP + 0.06, 2.4)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -935,7 +941,7 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0x1b1a17 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0x1f1c18 })
     const bars: THREE.Mesh[] = []
     if (yang) {
       bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.012, 0.04), material))

@@ -941,7 +941,7 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0xe0d4b8 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0x2f4a52 })
     const bars: THREE.Mesh[] = []
     if (yang) {
       bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.012, 0.04), material))

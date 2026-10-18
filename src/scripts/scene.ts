@@ -3,6 +3,7 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { read, type Yao } from '../lib/hexagram'
 
 type ThemeId = 'clear' | 'rain' | 'dusk' | 'snow'
 
@@ -566,6 +567,40 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
   scene.add(tiles)
 
+  // ---------- 石桌 · 铜钱 · 卦爻 ----------
+  const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
+  const altar = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.66, 1.1), altarMaterial)
+  altar.position.set(0, 0.33, 2.9)
+  scene.add(altar)
+  const ALTAR_TOP = 0.66
+
+  const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
+  const coins: THREE.Mesh[] = []
+  for (let i = 0; i < 3; i++) {
+    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.022, 24), coinBaseMaterial.clone())
+    coin.rotation.x = Math.PI / 2
+    coin.visible = false
+    scene.add(coin)
+    coins.push(coin)
+  }
+
+  const lineGroup = new THREE.Group()
+  lineGroup.position.set(0, 1.28, 1.95)
+  lineGroup.scale.setScalar(0.8)
+  scene.add(lineGroup)
+  const lineSlots: THREE.Group[] = []
+  const buildSlots = () => {
+    for (const slot of lineSlots) lineGroup.remove(slot)
+    lineSlots.length = 0
+    for (let i = 0; i < 6; i++) {
+      const slot = new THREE.Group()
+      slot.position.y = -0.38 + i * 0.15
+      lineGroup.add(slot)
+      lineSlots.push(slot)
+    }
+  }
+  buildSlots()
+
   // ---------- 灯笼 ----------
   const glowTexture = makeGlowTexture()
   const lanternMaterial = new THREE.MeshStandardMaterial({
@@ -780,6 +815,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   const clock = new THREE.Clock()
   let raf = 0
   let paused = false
+  const coinAnim = { active: false, start: 0, faces: [false, false, false] }
 
   function resize() {
     const width = window.innerWidth
@@ -835,10 +871,111 @@ function start(canvas: HTMLCanvasElement): () => void {
       }
     }
 
+    if (coinAnim.active) {
+      const p = Math.min((performance.now() - coinAnim.start) / 900, 1)
+      const e = 1 - Math.pow(1 - p, 3)
+      coins.forEach((coin, i) => {
+        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.35, ALTAR_TOP + 0.012, e), 2.9)
+        coin.rotation.x = Math.PI / 2
+        coin.rotation.z = p * 14 + i * 1.7
+      })
+      if (p >= 1) {
+        coinAnim.active = false
+        coins.forEach((coin, i) => {
+          const material = coin.material as THREE.MeshStandardMaterial
+          material.color.set(coinAnim.faces[i] ? 0xe8c46a : 0x6a5636)
+          material.emissive.set(coinAnim.faces[i] ? 0x3a2a0a : 0x14100a)
+        })
+      }
+    }
+
     if (composer) composer.render()
     else renderer.render(scene, camera)
 
     if (!document.body.classList.contains('ready')) document.body.classList.add('ready')
+  }
+
+  // ---------- 起卦流程 ----------
+  const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms))
+  const ritualBtn = document.getElementById('ritualBtn')
+  const resultCard = document.getElementById('result')
+
+  const revealLine = (index: number, yang: boolean, moving: boolean) => {
+    const slot = lineSlots[index]
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xe0b866 : 0xe8dfc8, transparent: true, opacity: 0 })
+    const bars: THREE.Mesh[] = []
+    if (yang) {
+      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.048, 0.02), material))
+    } else {
+      for (const dx of [-0.24, 0.24]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.048, 0.02), material)
+        bar.position.x = dx
+        bars.push(bar)
+      }
+    }
+    bars.forEach((bar) => slot.add(bar))
+    const t0 = performance.now()
+    const step = () => {
+      const p = Math.min((performance.now() - t0) / 420, 1)
+      material.opacity = p
+      bars.forEach((bar) => { bar.scale.x = 0.6 + 0.4 * p })
+      if (p < 1) requestAnimationFrame(step)
+    }
+    step()
+  }
+
+  const tossRound = () =>
+    new Promise<boolean[]>((resolve) => {
+      const faces = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5]
+      coinAnim.faces = faces
+      coinAnim.start = performance.now()
+      coinAnim.active = true
+      coins.forEach((coin, i) => {
+        coin.visible = true
+        coin.position.set(-0.34 + i * 0.34, ALTAR_TOP + 1.35, 2.9)
+      })
+      window.setTimeout(() => resolve(faces), 950)
+    })
+
+  let ritualBusy = false
+  const startRitual = async () => {
+    if (ritualBusy) return
+    ritualBusy = true
+    buildSlots()
+    coins.forEach((coin) => { coin.visible = false })
+    resultCard?.classList.remove('open')
+    if (ritualBtn) ritualBtn.style.display = 'none'
+
+    const values: Yao[] = []
+    for (let i = 0; i < 6; i++) {
+      const faces = await tossRound()
+      const heads = faces.filter(Boolean).length
+      const value = (6 + heads) as Yao
+      values.push(value)
+      revealLine(i, value === 7 || value === 9, value === 6 || value === 9)
+      await sleep(560)
+    }
+
+    const reading = read(values)
+    const numberEl = document.getElementById('resultNumber')
+    const nameEl = document.getElementById('resultName')
+    const pinyinEl = document.getElementById('resultPinyin')
+    const judgmentEl = document.getElementById('resultJudgment')
+    const interpEl = document.getElementById('resultInterp')
+    if (numberEl) numberEl.textContent = String(reading.primaryHex.number)
+    if (nameEl) nameEl.textContent = reading.primaryHex.name
+    if (pinyinEl) pinyinEl.textContent = reading.primaryHex.pinyin
+    if (judgmentEl) judgmentEl.textContent = reading.primaryHex.judgment
+    if (interpEl) interpEl.textContent = reading.primaryHex.interpretation
+    resultCard?.classList.add('open')
+    ritualBusy = false
+  }
+
+  ritualBtn?.addEventListener('click', () => { void startRitual() })
+  document.getElementById('againBtn')?.addEventListener('click', () => { void startRitual() })
+
+  if (new URLSearchParams(location.search).get('ritual') === '1') {
+    window.setTimeout(() => { void startRitual() }, 1200)
   }
 
   document.addEventListener('visibilitychange', () => {

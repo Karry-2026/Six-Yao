@@ -13,7 +13,7 @@ const base = import.meta.env.BASE_URL
       content="一方庭院，一炷香，六次掷币。基于《周易》六爻占法的在线起卦工具。"
     />
     <meta name="theme-color" content="#0d141a" />
-    <link rel="icon" href={`${base}favicon.svg`} />
+    <link rel="icon" href={`${base}/favicon.svg`} />
     <style>
       :root {
         --ink: #e8e2d6;
@@ -77,6 +77,36 @@ const base = import.meta.env.BASE_URL
       body.no-webgl canvas#scene { display: none; }
       body.no-webgl #poster { background: linear-gradient(180deg, #0b1218, #080d11); }
 
+      .ritual-btn {
+        position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
+        z-index: 3; opacity: 0; pointer-events: none; transition: opacity .6s ease;
+      }
+      body.ready .ritual-btn { opacity: 1; pointer-events: auto; }
+
+      .result-card {
+        position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);
+        z-index: 4; width: min(560px, calc(100vw - 40px));
+        padding: 22px 26px 20px;
+        background: rgba(12, 18, 23, .82);
+        border: 1px solid rgba(232, 226, 214, .18);
+        border-radius: 4px;
+        backdrop-filter: blur(10px);
+        color: var(--ink);
+        display: none;
+      }
+      .result-card.open { display: block; }
+      .result-eyebrow { color: var(--accent); font-size: .75rem; letter-spacing: .25em; }
+      .result-card h2 { font-size: 1.6rem; font-weight: 400; letter-spacing: .16em; margin: 6px 0 2px; }
+      .result-pinyin { color: var(--dim); font-size: .8rem; letter-spacing: .1em; margin-bottom: 12px; }
+      .result-judgment { font-size: .95rem; line-height: 1.9; color: #cfc7b8; margin-bottom: 8px; }
+      .result-interp { font-size: .85rem; line-height: 1.85; color: #a9a294; margin-bottom: 16px; }
+      .result-card .btn-sm { font-size: .8rem; padding: 9px 22px; }
+
+      @media (max-width: 640px) {
+        .result-card { bottom: 16px; padding: 18px; }
+        .ritual-btn { bottom: 20px; }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         #poster, canvas#scene { transition: none; }
       }
@@ -90,6 +120,17 @@ const base = import.meta.env.BASE_URL
       <button class="btn" id="begin" type="button">抽 取 一 卦</button>
     </div>
     <canvas id="scene" aria-hidden="true"></canvas>
+
+    <button id="ritualBtn" class="btn ritual-btn" type="button">抽 取 一 卦</button>
+
+    <section id="result" class="result-card" aria-live="polite">
+      <div class="result-eyebrow">第 <span id="resultNumber"></span> 卦</div>
+      <h2 id="resultName"></h2>
+      <p id="resultPinyin" class="result-pinyin"></p>
+      <p id="resultJudgment" class="result-judgment"></p>
+      <p id="resultInterp" class="result-interp"></p>
+      <button id="againBtn" class="btn btn-sm" type="button">再 占 一 卦</button>
+    </section>
     <noscript><p style="position:fixed;inset:0;display:grid;place-content:center">请启用 JavaScript。</p></noscript>
     <script>
       // 3D 不进首屏关键路径：海报先出，空闲时再拉 3D 模块

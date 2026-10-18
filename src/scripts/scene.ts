@@ -592,15 +592,15 @@ function start(canvas: HTMLCanvasElement): () => void {
   const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
   const coins: THREE.Mesh[] = []
   for (let i = 0; i < 3; i++) {
-    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.022, 24), coinBaseMaterial.clone())
-    coin.rotation.x = Math.PI / 2
+    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.028, 24), coinBaseMaterial.clone())
+    coin.rotation.y = Math.random() * Math.PI
     coin.visible = false
     scene.add(coin)
     coins.push(coin)
   }
 
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, ALTAR_TOP + 0.02, 2.32)
+  lineGroup.position.set(0, ALTAR_TOP + 0.07, 2.35)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -608,7 +608,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     lineSlots.length = 0
     for (let i = 0; i < 6; i++) {
       const slot = new THREE.Group()
-      slot.position.z = 0.2 - i * 0.11
+      slot.position.z = 0.24 - i * 0.11
       lineGroup.add(slot)
       lineSlots.push(slot)
     }
@@ -891,9 +891,8 @@ function start(canvas: HTMLCanvasElement): () => void {
       const p = Math.min((performance.now() - coinAnim.start) / 900, 1)
       const e = 1 - Math.pow(1 - p, 3)
       coins.forEach((coin, i) => {
-        coin.position.set(-0.36 + i * 0.36, THREE.MathUtils.lerp(ALTAR_TOP + 1.25, ALTAR_TOP + 0.012, e), 2.9)
-        coin.rotation.x = Math.PI / 2
-        coin.rotation.z = p * 14 + i * 1.7
+        coin.position.set(-0.36 + i * 0.36, THREE.MathUtils.lerp(ALTAR_TOP + 1.25, ALTAR_TOP + 0.035, e), 2.9)
+        coin.rotation.y = p * 6 + i * 1.7
       })
       if (p >= 1) {
         coinAnim.active = false
@@ -924,10 +923,10 @@ function start(canvas: HTMLCanvasElement): () => void {
     const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0x1b1a17 })
     const bars: THREE.Mesh[] = []
     if (yang) {
-      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.014, 0.06), material))
+      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.02, 0.07), material))
     } else {
       for (const dx of [-0.27, 0.27]) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.014, 0.06), material)
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.02, 0.07), material)
         bar.position.x = dx
         bars.push(bar)
       }
@@ -988,6 +987,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       revealLine(i, value === 7 || value === 9, value === 6 || value === 9)
       await sleep(560)
     }
+
 
     const reading = read(values)
     const numberEl = document.getElementById('resultNumber')

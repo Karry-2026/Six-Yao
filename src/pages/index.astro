@@ -284,12 +284,6 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
       bindPanels({ hexagrams: hexagrams as unknown as Hexagram[] })
 
       const panelParam = new URLSearchParams(location.search).get('panel')
-      if (new URLSearchParams(location.search).get('seed') === '1') {
-        const now = Date.now()
-        saveRecord({ t: now - 3600_000 * 2, values: [6, 7, 8, 9, 7, 8] })
-        saveRecord({ t: now - 3600_000 * 26, values: [7, 7, 8, 8, 9, 9] })
-        saveRecord({ t: now - 3600_000 * 50, values: [8, 6, 7, 8, 9, 7] })
-      }
       if (panelParam === 'browse') document.getElementById('browseBtn')?.click()
       if (panelParam === 'history') document.getElementById('historyBtn')?.click()
 

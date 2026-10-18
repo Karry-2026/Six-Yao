@@ -334,6 +334,16 @@ function makeInkMaterial(theme: ThemeConfig, paper: string, ink: string): THREE.
       uniform vec3 uFog;
       uniform float uFogDensity;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 3; i++) {
+          v += a * (fract(sin(dot(floor(p), vec2(127.1, 311.7))) * 43758.5453));
+          p *= 2.03;
+          a *= 0.5;
+        }
+        return v;
+      }
       float noise(vec2 p) {
         vec2 i = floor(p);
         vec2 f = fract(p);
@@ -354,8 +364,8 @@ function makeInkMaterial(theme: ThemeConfig, paper: string, ink: string): THREE.
         vec3 col = mix(uInk, uPaper, q);
         float rim = 1.0 - max(dot(N, V), 0.0);
         col = mix(col, uInk, smoothstep(0.45, 0.95, rim) * 0.85);
-        float wash = noise(vW.xz * 1.6 + vec2(vW.y * 1.2, 0.0));
-        col *= 0.9 + 0.1 * wash;
+        float wash = fbm(vec2(vW.x * 4.5, vW.y * 1.6));
+        col *= 0.846 + 0.27 * wash;
         col *= 0.97 + 0.03 * noise(vW.xz * 30.0);
         float d = length(vW - cameraPosition);
         float fog = 1.0 - exp(-pow(d * uFogDensity, 2.0));
@@ -774,6 +784,46 @@ function start(canvas: HTMLCanvasElement): () => void {
   const emberLight = new THREE.PointLight(0xff8a3d, 1.6, 1.1, 2)
   emberLight.position.set(-0.72, ALTAR_TOP + 0.12, 2.78)
   scene.add(emberLight)
+  const smokeMaterial = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      void main() {
+        float sway = sin(vUv.y * 3.2 + uTime * 0.7) * 0.07;
+        float n = noise(vec2(vUv.x * 3.0 + sway * 5.0, vUv.y * 2.2 - uTime * 0.3));
+        float n2 = noise(vec2(vUv.x * 9.0 - sway * 3.0, vUv.y * 6.0 - uTime * 0.55));
+        float a = smoothstep(0.52, 0.95, n * 0.65 + n2 * 0.35 + vUv.y * 0.22);
+        a *= smoothstep(0.0, 0.3, vUv.y) * (1.0 - smoothstep(0.55, 1.0, vUv.y));
+        a *= 1.0 - pow(abs(vUv.x - 0.5) * 2.0, 2.0);
+        gl_FragColor = vec4(vec3(0.82, 0.78, 0.71), a * 0.16);
+      }
+    `,
+  })
+  const smoke = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 1.0), smokeMaterial)
+  smoke.position.set(-0.72, ALTAR_TOP + 0.55, 2.79)
+  scene.add(smoke)
 
   const lineGroup = new THREE.Group()
   lineGroup.position.set(0, ALTAR_TOP + 0.06, 2.4)
@@ -1025,6 +1075,8 @@ function start(canvas: HTMLCanvasElement): () => void {
     if (paused) return
 
     const t = clock.getElapsedTime()
+    smokeMaterial.uniforms.uTime.value = t
+    smokeMaterial.uniforms.uTime.value = t
 
     if (introActive) {
       const k = Math.min(t / introDuration, 1)

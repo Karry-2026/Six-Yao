@@ -373,7 +373,11 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // 窗棂
   const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4136, roughness: 0.75 })
+  const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x2b2620, roughness: 0.9 })
   for (const cx of [-3.45, 3.45]) {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.24, 0.06), panelMaterial)
+    panel.position.set(cx, 2.0, -3.47)
+    scene.add(panel)
     for (let i = 0; i < 4; i++) {
       const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.25, 0.1), woodMaterial)
       vBar.position.set(cx - 0.42 + i * 0.28, 2.0, -3.44)
@@ -412,10 +416,10 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // 门后远处的一道矮墙剪影，避免门洞看起来像窗框
   const backWall = new THREE.Mesh(
-    new THREE.BoxGeometry(10, 1.15, 0.2),
+    new THREE.BoxGeometry(10, 0.64, 0.2),
     new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x5b4e3d : 0x1b1510 }),
   )
-  backWall.position.set(0, 0.58, -11.4)
+  backWall.position.set(0, 0.32, -11.4)
   scene.add(backWall)
 
   for (const x of [-2.9, 2.5]) {
@@ -426,6 +430,16 @@ function start(canvas: HTMLCanvasElement): () => void {
     pole.position.set(x, 1.6, -10.8)
     scene.add(pole)
   }
+
+  const backGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(12, 10),
+    new THREE.MeshStandardMaterial({ color: theme.daylight ? '#9a907c' : '#3a3830', roughness: 0.95 }),
+  )
+  backGround.rotation.x = -Math.PI / 2
+  backGround.position.set(0, 0.015, -8)
+  scene.add(backGround)
+
+
 
   const beyondLight = new THREE.PointLight(theme.daylight ? 0xffe3b0 : 0xd4a853, theme.daylight ? 6 : 4, 18, 2)
   beyondLight.position.set(0, 2.4, -7.4)
@@ -442,6 +456,8 @@ function start(canvas: HTMLCanvasElement): () => void {
   roof.position.set(0, 4.28, -4.34)
   roof.rotation.x = -0.62
   scene.add(roof)
+
+
 
   // 两侧院墙
   const sideWallMaterial = new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.95 })
@@ -479,10 +495,11 @@ function start(canvas: HTMLCanvasElement): () => void {
     return texture
   }
 
-  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.jpg', true, 0.22, 0.22)
-  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.jpg', false, 0.22, 0.22)
-  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.jpg', false, 0.22, 0.22)
+  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.jpg', true, 0.11, 0.11)
+  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.jpg', false, 0.11, 0.11)
+  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.jpg', false, 0.11, 0.11)
   wallMaterial.color.set(theme.daylight ? '#ffffff' : '#9a9a9a')
+  wallMaterial.normalScale = new THREE.Vector2(0.35, 0.35)
   wallMaterial.needsUpdate = true
 
   groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.jpg', true, 18, 18)

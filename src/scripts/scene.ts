@@ -550,15 +550,17 @@ function start(canvas: HTMLCanvasElement): () => void {
     scene.add(step)
   }
 
-  // ---------- 瓦当（檐口一排半圆瓦） ----------
-  const tileGeometry = new THREE.CylinderGeometry(0.085, 0.085, 0.22, 12)
-  const tileMaterial = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.8 })
-  const tileCount = 72
+  // ---------- 筒瓦：沿坡向的圆瓦垄 ----------
+  const slopeDir = new THREE.Vector3(0, 1.26, -2.6).normalize()
+  const tileQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), slopeDir)
+  const tileGeometry = new THREE.CylinderGeometry(0.072, 0.072, 2.92, 9, 1, false)
+  const tileMaterial = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.78 })
+  const tileCount = 64
   const tiles = new THREE.InstancedMesh(tileGeometry, tileMaterial, tileCount)
   const tileDummy = new THREE.Object3D()
   for (let i = 0; i < tileCount; i++) {
-    tileDummy.position.set(-5.78 + (i * 11.56) / (tileCount - 1), 3.58, -2.76)
-    tileDummy.rotation.set(Math.PI / 2, 0, 0)
+    tileDummy.position.set(-5.72 + (i * 11.44) / (tileCount - 1), 4.36, -4.25)
+    tileDummy.quaternion.copy(tileQuat)
     tileDummy.updateMatrix()
     tiles.setMatrixAt(i, tileDummy.matrix)
   }
@@ -741,7 +743,8 @@ function start(canvas: HTMLCanvasElement): () => void {
     new THREE.Vector3(0.2, 1.7, 7.8),
     FINAL_POS,
   ])
-  let introActive = !introSeen && !reduceMotion
+  const skipIntro = new URLSearchParams(location.search).get('intro') === '0'
+  let introActive = !introSeen && !reduceMotion && !skipIntro
   const introLook = new THREE.Vector3(0, 2.1, -3.6)
   if (introActive) {
     try {

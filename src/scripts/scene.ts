@@ -216,6 +216,67 @@ function makeGroundTexture(): THREE.Texture {
   return texture
 }
 
+function makeLeafTexture(): THREE.Texture {
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  ctx.clearRect(0, 0, size, size)
+  const gradient = ctx.createLinearGradient(32, 4, 32, 60)
+  gradient.addColorStop(0, 'rgba(40,70,40,0)')
+  gradient.addColorStop(0.35, 'rgba(52,86,48,0.95)')
+  gradient.addColorStop(1, 'rgba(30,52,30,0.95)')
+  ctx.fillStyle = gradient
+  ctx.beginPath()
+  ctx.moveTo(32, 2)
+  ctx.quadraticCurveTo(54, 30, 32, 62)
+  ctx.quadraticCurveTo(10, 30, 32, 2)
+  ctx.fill()
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+function makeRoofTexture(): THREE.Texture {
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#2a2e31'
+  ctx.fillRect(0, 0, size, size)
+  for (let x = 0; x < size; x += 16) {
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'
+    ctx.fillRect(x, 0, 2, size)
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    ctx.fillRect(x + 2, 0, 2, size)
+  }
+  for (let y = 0; y < size; y += 24) {
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'
+    ctx.fillRect(0, y, size, 2)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(5, 3)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+function makeBeyondTexture(): THREE.Texture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')!
+  const g = ctx.createRadialGradient(64, 74, 4, 64, 74, 78)
+  g.addColorStop(0, '#f0d7a6')
+  g.addColorStop(0.35, '#a98a5e')
+  g.addColorStop(1, '#2a2119')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 128, 128)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
 let disposeCurrent: (() => void) | null = null
 
 export function boot(): void {
@@ -266,9 +327,9 @@ function start(canvas: HTMLCanvasElement): () => void {
   scene.background = makeSkyTexture(theme.sky)
   scene.fog = new THREE.FogExp2(new THREE.Color(theme.fog), theme.fogDensity)
 
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 160)
-  const FINAL_POS = new THREE.Vector3(0, 1.42, 3.4)
-  const LOOK_AT = new THREE.Vector3(0, 1.38, -2.4)
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 160)
+  const FINAL_POS = new THREE.Vector3(0, 1.62, 6.2)
+  const LOOK_AT = new THREE.Vector3(0, 1.55, -3.4)
   camera.position.copy(FINAL_POS)
   camera.lookAt(LOOK_AT)
 
@@ -301,22 +362,85 @@ function start(canvas: HTMLCanvasElement): () => void {
   wall.position.set(0, 0, -3.6)
   scene.add(wall)
 
-  // 门后的纵深
+  // 墙基与压顶
+  const plinthMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8d8578' : '#3a3a37', roughness: 0.95 })
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.46, 0.42), plinthMaterial)
+  plinth.position.set(0, 0.23, -3.62)
+  scene.add(plinth)
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(11.6, 0.16, 0.5), plinthMaterial)
+  cap.position.set(0, 3.68, -3.62)
+  scene.add(cap)
+
+  // 窗棂
+  const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4136, roughness: 0.75 })
+  for (const cx of [-3.45, 3.45]) {
+    for (let i = 0; i < 4; i++) {
+      const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.25, 0.1), woodMaterial)
+      vBar.position.set(cx - 0.42 + i * 0.28, 2.0, -3.44)
+      scene.add(vBar)
+      const hBar = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.035, 0.1), woodMaterial)
+      hBar.position.set(cx, 1.52 + i * 0.32, -3.44)
+      scene.add(hBar)
+    }
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.34, 0.07, 0.14), woodMaterial)
+    top.position.set(cx, 2.62, -3.44)
+    scene.add(top)
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(1.34, 0.09, 0.14), woodMaterial)
+    bottom.position.set(cx, 1.4, -3.44)
+    scene.add(bottom)
+  }
+
+  // 石径（逐块石板）
+  const slabMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#9c9384' : '#4a4842', roughness: 0.92 })
+  for (let i = 0; i < 9; i++) {
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(1.9 + Math.random() * 0.2, 0.05, 0.62), slabMaterial)
+    slab.position.set((Math.random() - 0.5) * 0.12, 0.03, -3.0 + i * 0.86)
+    slab.rotation.y = (Math.random() - 0.5) * 0.04
+    scene.add(slab)
+  }
+
+  // 门后的纵深：远墙 + 屋脊剪影 + 暖光
   const beyond = new THREE.Mesh(
-    new THREE.PlaneGeometry(7, 4.4),
-    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x4a4034 : 0x201811 }),
+    new THREE.PlaneGeometry(9, 5.5),
+    new THREE.MeshBasicMaterial({
+      map: makeBeyondTexture(),
+      color: theme.daylight ? 0xffffff : 0x8a7458,
+    }),
   )
-  beyond.position.set(0, 2, -10)
+  beyond.position.set(0, 2.2, -12)
   scene.add(beyond)
+
+  // 门后远处的一道矮墙剪影，避免门洞看起来像窗框
+  const backWall = new THREE.Mesh(
+    new THREE.BoxGeometry(10, 1.15, 0.2),
+    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x5b4e3d : 0x1b1510 }),
+  )
+  backWall.position.set(0, 0.58, -11.4)
+  scene.add(backWall)
+
+  for (const x of [-2.9, 2.5]) {
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.045, 3.2, 6),
+      new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x4d5a42 : 0x1a2418 }),
+    )
+    pole.position.set(x, 1.6, -10.8)
+    scene.add(pole)
+  }
+
+  const beyondLight = new THREE.PointLight(theme.daylight ? 0xffe3b0 : 0xd4a853, theme.daylight ? 6 : 4, 18, 2)
+  beyondLight.position.set(0, 2.4, -7.4)
+  scene.add(beyondLight)
 
   // 檐口与屋顶
   const roofMaterial = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.9 })
   const eave = new THREE.Mesh(new THREE.BoxGeometry(11.8, 0.18, 1.5), roofMaterial)
   eave.position.set(0, 3.68, -3.6)
   scene.add(eave)
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(11.8, 0.16, 1.9), roofMaterial)
-  roof.position.set(0, 3.9, -2.9)
-  roof.rotation.x = -0.28
+  const roofTexture = makeRoofTexture()
+  const roofMaterial2 = new THREE.MeshStandardMaterial({ color: theme.roof, map: roofTexture, roughness: 0.85 })
+  const roof = new THREE.Mesh(new THREE.PlaneGeometry(11.9, 3.0), roofMaterial2)
+  roof.position.set(0, 4.28, -4.34)
+  roof.rotation.x = -0.62
   scene.add(roof)
 
   // 两侧院墙
@@ -355,9 +479,9 @@ function start(canvas: HTMLCanvasElement): () => void {
     return texture
   }
 
-  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.jpg', true, 0.32, 0.32)
-  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.jpg', false, 0.32, 0.32)
-  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.jpg', false, 0.32, 0.32)
+  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.jpg', true, 0.22, 0.22)
+  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.jpg', false, 0.22, 0.22)
+  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.jpg', false, 0.22, 0.22)
   wallMaterial.color.set(theme.daylight ? '#ffffff' : '#9a9a9a')
   wallMaterial.needsUpdate = true
 
@@ -382,13 +506,13 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   // ---------- 瓦当（檐口一排半圆瓦） ----------
-  const tileGeometry = new THREE.CylinderGeometry(0.055, 0.055, 0.44, 10)
+  const tileGeometry = new THREE.CylinderGeometry(0.062, 0.062, 0.16, 12)
   const tileMaterial = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.8 })
-  const tileCount = 64
+  const tileCount = 72
   const tiles = new THREE.InstancedMesh(tileGeometry, tileMaterial, tileCount)
   const tileDummy = new THREE.Object3D()
   for (let i = 0; i < tileCount; i++) {
-    tileDummy.position.set(-5.75 + (i * 11.5) / (tileCount - 1), 3.6, -3.02)
+    tileDummy.position.set(-5.78 + (i * 11.56) / (tileCount - 1), 3.62, -2.84)
     tileDummy.rotation.set(Math.PI / 2, 0, 0)
     tileDummy.updateMatrix()
     tiles.setMatrixAt(i, tileDummy.matrix)
@@ -457,6 +581,38 @@ function start(canvas: HTMLCanvasElement): () => void {
     bamboo.setMatrixAt(i, dummy.matrix)
   }
   scene.add(bamboo)
+
+  // 竹叶
+  const leafTexture = makeLeafTexture()
+  const leafGeometry = new THREE.PlaneGeometry(0.2, 0.62)
+  const leafMaterial = new THREE.MeshStandardMaterial({
+    map: leafTexture,
+    transparent: true,
+    alphaTest: 0.35,
+    side: THREE.DoubleSide,
+    roughness: 0.9,
+  })
+  const leafCount = tier === 'low' ? 140 : 260
+  const leaves = new THREE.InstancedMesh(leafGeometry, leafMaterial, leafCount)
+  const leafDummy = new THREE.Object3D()
+  for (let i = 0; i < leafCount; i++) {
+    const side = i % 2 === 0 ? -1 : 1
+    leafDummy.position.set(
+      side * (2.2 + Math.random() * 1.9),
+      1.6 + Math.random() * 2.1,
+      -4.8 + Math.random() * 5.4,
+    )
+    leafDummy.rotation.set(
+      (Math.random() - 0.5) * 1.2,
+      Math.random() * Math.PI * 2,
+      (Math.random() - 0.5) * 0.9,
+    )
+    const s = 0.7 + Math.random() * 0.8
+    leafDummy.scale.set(s, s, s)
+    leafDummy.updateMatrix()
+    leaves.setMatrixAt(i, leafDummy.matrix)
+  }
+  scene.add(leaves)
 
   // ---------- 粒子 ----------
   const particleCount = Math.round(
@@ -534,9 +690,9 @@ function start(canvas: HTMLCanvasElement): () => void {
   })()
   const introDuration = 4
   const introCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.4, 1.75, 9.2),
-    new THREE.Vector3(0.25, 1.7, 6.4),
-    new THREE.Vector3(0.1, 1.55, 4.6),
+    new THREE.Vector3(1.1, 2.0, 13.4),
+    new THREE.Vector3(0.6, 1.85, 10.4),
+    new THREE.Vector3(0.2, 1.7, 7.8),
     FINAL_POS,
   ])
   let introActive = !introSeen && !reduceMotion

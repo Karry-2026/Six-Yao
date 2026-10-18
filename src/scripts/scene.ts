@@ -495,6 +495,95 @@ function makeRidgeMaterial(theme: ThemeConfig): THREE.ShaderMaterial {
     fog: false,
   })
 }
+function makeCoinFaceTexture(): THREE.CanvasTexture {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, size, size)
+
+  ctx.strokeStyle = 'rgba(90, 60, 20, 0.35)'
+  ctx.lineWidth = 10
+  ctx.beginPath()
+  ctx.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2)
+  ctx.stroke()
+
+  const chars = ['乾', '隆', '通', '宝']
+  const positions = [
+    [size * 0.5, size * 0.28],
+    [size * 0.72, size * 0.5],
+    [size * 0.5, size * 0.72],
+    [size * 0.28, size * 0.5],
+  ]
+  ctx.fillStyle = 'rgba(84, 58, 24, 0.5)'
+  ctx.font = `600 ${Math.round(size * 0.15)}px "Songti SC", "SimSun", serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  chars.forEach((ch, i) => {
+    ctx.save()
+    ctx.translate(positions[i][0], positions[i][1])
+    ctx.fillText(ch, 0, 0)
+    ctx.restore()
+  })
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(4, 4)
+  texture.offset.set(0.5, 0.5)
+  return texture
+}
+
+function makeWoodTexture(): THREE.CanvasTexture {
+  const size = 1024
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const gradient = ctx.createLinearGradient(0, 0, size, size)
+  gradient.addColorStop(0, '#3a2a1b')
+  gradient.addColorStop(0.5, '#4a3521')
+  gradient.addColorStop(1, '#2e2116')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, size, size)
+
+  for (let i = 0; i < 260; i++) {
+    const y = Math.random() * size
+    const alpha = 0.04 + Math.random() * 0.1
+    ctx.strokeStyle = Math.random() > 0.5 ? `rgba(30, 20, 12, ${alpha})` : `rgba(150, 110, 70, ${alpha})`
+    ctx.lineWidth = 0.6 + Math.random() * 2.4
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    for (let x = 0; x <= size; x += 32) {
+      const wobble = Math.sin(x * 0.012 + i) * 6 + Math.sin(x * 0.05 + i * 1.7) * 2.4
+      ctx.lineTo(x, y + wobble)
+    }
+    ctx.stroke()
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const cx = 120 + Math.random() * (size - 240)
+    const cy = 120 + Math.random() * (size - 240)
+    for (let r = 20; r > 2; r -= 3) {
+      ctx.strokeStyle = `rgba(24, 16, 10, ${0.05 + Math.random() * 0.06})`
+      ctx.lineWidth = 1.6
+      ctx.beginPath()
+      ctx.ellipse(cx, cy, r * 1.8, r, Math.random() * Math.PI, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  return texture
+}
+
 function start(canvas: HTMLCanvasElement): () => void {
   const themeId = resolveTheme()
   const theme = THEMES[themeId]
@@ -518,8 +607,9 @@ function start(canvas: HTMLCanvasElement): () => void {
   scene.fog = new THREE.FogExp2(new THREE.Color(theme.fog), theme.fogDensity)
 
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 160)
-  const FINAL_POS = new THREE.Vector3(0, 1.95, 5.75)
-  const LOOK_AT = new THREE.Vector3(0, 1.05, 1.5)
+  const closeUp = new URLSearchParams(location.search).get('cam') === 'close'
+  const FINAL_POS = closeUp ? new THREE.Vector3(0.05, 1.62, 4.35) : new THREE.Vector3(0, 1.95, 5.75)
+  const LOOK_AT = closeUp ? new THREE.Vector3(-0.1, 0.85, 2.72) : new THREE.Vector3(0, 1.05, 1.5)
   camera.position.copy(FINAL_POS)
   camera.lookAt(LOOK_AT)
 
@@ -693,10 +783,12 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // 石桌在贴图段之后才声明，延后一拍再贴材质，避免 TDZ
   window.setTimeout(() => {
-    altarMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 2, 1.4)
-    altarMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 2, 1.4)
-    altarMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 2, 1.4)
-    altarMaterial.color.set(theme.daylight ? '#b9ae98' : '#8a8478')
+    const wood = makeWoodTexture()
+    wood.repeat.set(2.2, 1.3)
+    altarMaterial.map = wood
+    altarMaterial.color.set(theme.daylight ? '#d8bf94' : '#b39570')
+    altarMaterial.roughness = 0.62
+    altarMaterial.metalness = 0.05
     altarMaterial.needsUpdate = true
     performance.mark('textures:assigned')
   }, 0)
@@ -755,36 +847,114 @@ function start(canvas: HTMLCanvasElement): () => void {
   scene.add(tableLight)
   const ALTAR_TOP = 0.7
 
-  const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
+  const coinFaceTexture = makeCoinFaceTexture()
+  const coinFaceMaterial = new THREE.MeshStandardMaterial({
+    color: 0xc7a052,
+    map: coinFaceTexture,
+    metalness: 0.95,
+    roughness: 0.34,
+    emissive: 0x1a1206,
+    emissiveIntensity: 0.6,
+  })
+  const coinEdgeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x8f6f36,
+    metalness: 0.9,
+    roughness: 0.56,
+  })
+  const makeCoinGeometry = () => {
+    const shape = new THREE.Shape()
+    shape.absarc(0, 0, 0.125, 0, Math.PI * 2, false)
+    const hole = new THREE.Path()
+    const h = 0.038
+    hole.moveTo(-h, -h)
+    hole.lineTo(h, -h)
+    hole.lineTo(h, h)
+    hole.lineTo(-h, h)
+    hole.lineTo(-h, -h)
+    shape.holes.push(hole)
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: 0.016,
+      bevelEnabled: true,
+      bevelThickness: 0.005,
+      bevelSize: 0.005,
+      bevelSegments: 2,
+      curveSegments: 56,
+    })
+    geometry.center()
+    geometry.rotateX(-Math.PI / 2)
+    return geometry
+  }
+  const coinGeometry = makeCoinGeometry()
+  const coinRimGeometry = new THREE.TorusGeometry(0.125, 0.0045, 8, 48)
   const coins: THREE.Mesh[] = []
   for (let i = 0; i < 3; i++) {
-    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.028, 24), coinBaseMaterial.clone())
+    const coin = new THREE.Mesh(coinGeometry, [coinFaceMaterial.clone(), coinEdgeMaterial.clone()])
+    const rimTop = new THREE.Mesh(coinRimGeometry, coinEdgeMaterial)
+    rimTop.rotation.x = Math.PI / 2
+    rimTop.position.y = 0.0082
+    coin.add(rimTop)
+    const rimBottom = new THREE.Mesh(coinRimGeometry, coinEdgeMaterial)
+    rimBottom.rotation.x = Math.PI / 2
+    rimBottom.position.y = -0.0082
+    coin.add(rimBottom)
     coin.rotation.y = Math.random() * Math.PI
     coin.visible = false
     scene.add(coin)
     coins.push(coin)
   }
 
-  const censerMaterial = new THREE.MeshStandardMaterial({ color: 0x5a4a2e, metalness: 0.7, roughness: 0.45 })
-  const censer = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.09, 20), censerMaterial)
-  censer.position.set(-0.72, ALTAR_TOP + 0.045, 2.78)
-  scene.add(censer)
-  const censerRim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 24), censerMaterial)
+  const bronzeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x6d5a3a,
+    metalness: 0.82,
+    roughness: 0.52,
+  })
+  const bronzeDark = new THREE.MeshStandardMaterial({
+    color: 0x3f3424,
+    metalness: 0.75,
+    roughness: 0.62,
+  })
+  const censerGroup = new THREE.Group()
+  const censerProfile = [
+    new THREE.Vector2(0.0, 0.0),
+    new THREE.Vector2(0.055, 0.0),
+    new THREE.Vector2(0.075, 0.012),
+    new THREE.Vector2(0.098, 0.05),
+    new THREE.Vector2(0.106, 0.1),
+    new THREE.Vector2(0.09, 0.125),
+  ]
+  const censerBody = new THREE.Mesh(new THREE.LatheGeometry(censerProfile, 40), bronzeMaterial)
+  censerGroup.add(censerBody)
+  const censerRim = new THREE.Mesh(new THREE.TorusGeometry(0.096, 0.008, 10, 44), bronzeMaterial)
   censerRim.rotation.x = Math.PI / 2
-  censerRim.position.set(-0.72, ALTAR_TOP + 0.09, 2.78)
-  scene.add(censerRim)
-  const ember = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd4642a }))
-  ember.position.set(-0.72, ALTAR_TOP + 0.085, 2.78)
-  scene.add(ember)
+  censerRim.position.y = 0.122
+  censerGroup.add(censerRim)
   for (let i = 0; i < 3; i++) {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 6), censerMaterial)
-    const angle = (i / 3) * Math.PI * 2
-    leg.position.set(-0.72 + Math.cos(angle) * 0.07, ALTAR_TOP + 0.005, 2.78 + Math.sin(angle) * 0.07)
-    scene.add(leg)
+    const angle = (i / 3) * Math.PI * 2 + Math.PI / 6
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.014, 0.075, 8), bronzeDark)
+    leg.position.set(Math.cos(angle) * 0.06, -0.035, Math.sin(angle) * 0.06)
+    leg.rotation.x = Math.sin(angle) * 0.18
+    leg.rotation.z = -Math.cos(angle) * 0.18
+    censerGroup.add(leg)
   }
-  const emberLight = new THREE.PointLight(0xff8a3d, 1.6, 1.1, 2)
-  emberLight.position.set(-0.72, ALTAR_TOP + 0.12, 2.78)
+  for (const side of [-1, 1]) {
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.005, 8, 20, Math.PI), bronzeMaterial)
+    handle.position.set(side * 0.1, 0.108, 0)
+    handle.rotation.x = Math.PI / 2
+    handle.rotation.z = side * Math.PI / 2
+    censerGroup.add(handle)
+  }
+  const censer = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 10), new THREE.MeshBasicMaterial({ color: 0x7a3a18 }))
+  censer.position.set(-0.72, ALTAR_TOP + 0.098, 2.78)
+  censerGroup.position.set(-0.72, ALTAR_TOP + 0.005, 2.78)
+  scene.add(censerGroup)
+  scene.add(censer)
+  const ember = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd4642a }))
+  ember.position.set(-0.72, ALTAR_TOP + 0.128, 2.78)
+  scene.add(ember)
+  const emberLight = new THREE.PointLight(0xff8a3d, 0.9, 1.0, 2)
+  emberLight.position.set(-0.72, ALTAR_TOP + 0.15, 2.78)
   scene.add(emberLight)
+
   const smokeMaterial = new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 } },
     transparent: true,
@@ -890,7 +1060,7 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 竹影 ----------
   const bambooCount = tier === 'low' ? 26 : 44
-  const bambooGeometry = new THREE.CylinderGeometry(0.012, 0.022, 3.6, 5)
+  const bambooGeometry = new THREE.CylinderGeometry(0.011, 0.02, 3.6, 7)
   const bambooMaterial = new THREE.MeshStandardMaterial({ color: 0x24301f, roughness: 1 })
   const bamboo = new THREE.InstancedMesh(bambooGeometry, bambooMaterial, bambooCount)
   const dummy = new THREE.Object3D()
@@ -905,9 +1075,36 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
   scene.add(bamboo)
 
+  const nodeMatrices: THREE.Matrix4[] = []
+  const nodeGeometry = new THREE.TorusGeometry(0.017, 0.0035, 6, 14)
+  for (let i = 0; i < bambooCount; i++) {
+    const m = new THREE.Matrix4()
+    bamboo.getMatrixAt(i, m)
+    for (let n = 0; n < 3; n++) {
+      const offset = new THREE.Matrix4().makeTranslation(0, -1.1 + n * 1.05, 0)
+      nodeMatrices.push(m.clone().multiply(offset))
+    }
+  }
+  const nodes = new THREE.InstancedMesh(nodeGeometry, bambooMaterial, nodeMatrices.length)
+  nodeMatrices.forEach((m, i) => nodes.setMatrixAt(i, m))
+  nodes.instanceMatrix.needsUpdate = true
+  scene.add(nodes)
+
   // 竹叶
   const leafTexture = makeLeafTexture()
-  const leafGeometry = new THREE.PlaneGeometry(0.2, 0.62)
+  const leafGeometry = new THREE.PlaneGeometry(0.19, 0.58, 1, 4)
+  {
+    const pos = leafGeometry.getAttribute('position') as THREE.BufferAttribute
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i)
+      const t01 = (y + 0.29) / 0.58
+      const taper = Math.pow(Math.sin(Math.min(Math.max(t01, 0), 1) * Math.PI), 0.65)
+      pos.setX(i, pos.getX(i) * taper)
+      pos.setZ(i, Math.sin(t01 * Math.PI * 1.3) * 0.05)
+    }
+    pos.needsUpdate = true
+    leafGeometry.computeVertexNormals()
+  }
   const leafMaterial = new THREE.MeshStandardMaterial({
     map: leafTexture,
     transparent: true,
@@ -1126,9 +1323,12 @@ function start(canvas: HTMLCanvasElement): () => void {
       if (p >= 1) {
         coinAnim.active = false
         coins.forEach((coin, i) => {
-          const material = coin.material as THREE.MeshStandardMaterial
-          material.color.set(coinAnim.faces[i] ? 0xe8c46a : 0x6a5636)
-          material.emissive.set(coinAnim.faces[i] ? 0x3a2a0a : 0x14100a)
+          const materials = Array.isArray(coin.material) ? coin.material : [coin.material]
+          materials.forEach((entry) => {
+            const material = entry as THREE.MeshStandardMaterial
+            material.color?.set(coinAnim.faces[i] ? 0xe8c46a : 0x6a5636)
+            material.emissive?.set(coinAnim.faces[i] ? 0x3a2a0a : 0x14100a)
+          })
         })
       }
     }

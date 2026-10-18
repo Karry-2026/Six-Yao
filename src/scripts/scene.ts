@@ -50,8 +50,8 @@ const THEMES: Record<ThemeId, ThemeConfig> = {
     sunColor: 0xfff1d6,
     lantern: 0xd9a24a,
     bloom: 0.28,
-    exposure: 1.05,
-    hemi: 0.45,
+    exposure: 1.2,
+    hemi: 1.3,
     sun: 2.6,
     env: 0.9,
     particles: { count: 420, color: 0xffffff, size: 0.01, speed: 0.05, drift: 0.22, opacity: 0.3, falls: false },
@@ -90,8 +90,8 @@ const THEMES: Record<ThemeId, ThemeConfig> = {
     sunColor: 0xffcf94,
     lantern: 0xd4a853,
     bloom: 0.8,
-    exposure: 1.05,
-    hemi: 0.3,
+    exposure: 1.1,
+    hemi: 0.55,
     sun: 0.15,
     env: 0.05,
     particles: { count: 900, color: 0xd8cba8, size: 0.022, speed: 0.06, drift: 0.12, opacity: 0.6, falls: false },
@@ -273,15 +273,13 @@ function start(canvas: HTMLCanvasElement): () => void {
   camera.lookAt(LOOK_AT)
 
   // ---------- 地面 ----------
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(90, 90),
-    new THREE.MeshStandardMaterial({
-      color: theme.ground,
-      map: makeGroundTexture(),
-      roughness: 0.95,
-      metalness: 0,
-    }),
-  )
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: theme.ground,
+    map: makeGroundTexture(),
+    roughness: 0.95,
+    metalness: 0,
+  })
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), groundMaterial)
   ground.rotation.x = -Math.PI / 2
   scene.add(ground)
 
@@ -295,9 +293,10 @@ function start(canvas: HTMLCanvasElement): () => void {
   const hole = new THREE.Path()
   hole.absarc(0, 1.85, 1.12, 0, Math.PI * 2, true)
   wallShape.holes.push(hole)
+  const wallMaterial = new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.95, metalness: 0 })
   const wall = new THREE.Mesh(
     new THREE.ExtrudeGeometry(wallShape, { depth: 0.22, bevelEnabled: false, curveSegments: 48 }),
-    new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.95, metalness: 0 }),
+    wallMaterial,
   )
   wall.position.set(0, 0, -3.6)
   scene.add(wall)
@@ -305,7 +304,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   // 门后的纵深
   const beyond = new THREE.Mesh(
     new THREE.PlaneGeometry(7, 4.4),
-    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x8a7f6a : 0x3a2a1a }),
+    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x4a4034 : 0x201811 }),
   )
   beyond.position.set(0, 2, -10)
   scene.add(beyond)
@@ -329,10 +328,8 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   // 石径
-  const path = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.6, 8),
-    new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.9, metalness: 0 }),
-  )
+  const pathMaterial = new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.9, metalness: 0 })
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 8), pathMaterial)
   path.rotation.x = -Math.PI / 2
   path.position.set(0, 0.012, 0.4)
   scene.add(path)
@@ -345,6 +342,58 @@ function start(canvas: HTMLCanvasElement): () => void {
   contactShadow.rotation.x = -Math.PI / 2
   contactShadow.position.set(0, 0.02, -3.45)
   scene.add(contactShadow)
+
+  // ---------- CC0 PBR 贴图（Poly Haven，见 docs/ASSETS.md） ----------
+  const textureLoader = new THREE.TextureLoader()
+  const base = import.meta.env.BASE_URL.endsWith('/' ) ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`
+  const loadMap = (path: string, srgb: boolean, repeatX: number, repeatY: number) => {
+    const texture = textureLoader.load(`${base}textures/${path}`)
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(repeatX, repeatY)
+    texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy()
+    return texture
+  }
+
+  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.jpg', true, 0.32, 0.32)
+  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.jpg', false, 0.32, 0.32)
+  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.jpg', false, 0.32, 0.32)
+  wallMaterial.color.set(theme.daylight ? '#ffffff' : '#9a9a9a')
+  wallMaterial.needsUpdate = true
+
+  groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.jpg', true, 18, 18)
+  groundMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.jpg', false, 18, 18)
+  groundMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.jpg', false, 18, 18)
+  groundMaterial.color.set(theme.daylight ? '#cfc9bb' : '#6a6a66')
+  groundMaterial.needsUpdate = true
+
+  pathMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.jpg', true, 2, 5)
+  pathMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.jpg', false, 2, 5)
+  pathMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.jpg', false, 2, 5)
+  pathMaterial.color.set(theme.daylight ? '#e2dccd' : '#7a7a74')
+  pathMaterial.needsUpdate = true
+
+  // ---------- 石阶 ----------
+  const stepMaterial = new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.9 })
+  for (let i = 0; i < 2; i++) {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(3.0 + i * 0.4, 0.09, 0.32), stepMaterial)
+    step.position.set(0, 0.045 + i * 0.09, -3.2 + i * 0.32)
+    scene.add(step)
+  }
+
+  // ---------- 瓦当（檐口一排半圆瓦） ----------
+  const tileGeometry = new THREE.CylinderGeometry(0.055, 0.055, 0.44, 10)
+  const tileMaterial = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.8 })
+  const tileCount = 64
+  const tiles = new THREE.InstancedMesh(tileGeometry, tileMaterial, tileCount)
+  const tileDummy = new THREE.Object3D()
+  for (let i = 0; i < tileCount; i++) {
+    tileDummy.position.set(-5.75 + (i * 11.5) / (tileCount - 1), 3.6, -3.02)
+    tileDummy.rotation.set(Math.PI / 2, 0, 0)
+    tileDummy.updateMatrix()
+    tiles.setMatrixAt(i, tileDummy.matrix)
+  }
+  scene.add(tiles)
 
   // ---------- 灯笼 ----------
   const glowTexture = makeGlowTexture()
@@ -456,7 +505,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   if (tier !== 'low' && theme.env > 0) {
     const pmrem = new THREE.PMREMGenerator(renderer)
     new RGBELoader()
-      .loadAsync(`${import.meta.env.BASE_URL}env/courtyard_1k.hdr`)
+      .loadAsync(`${base}env/courtyard_1k.hdr`)
       .then((texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping
         scene.environment = pmrem.fromEquirectangular(texture).texture

@@ -3,6 +3,7 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { read, type Yao } from '../lib/hexagram'
 import { ambient } from '../lib/ambient'
 
@@ -307,6 +308,182 @@ export function boot(): void {
   }
 }
 
+function makeInkMaterial(theme: ThemeConfig, paper: string, ink: string): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uInk: { value: new THREE.Color(ink) },
+      uPaper: { value: new THREE.Color(paper) },
+      uFog: { value: new THREE.Color(theme.fog) },
+      uFogDensity: { value: theme.fogDensity },
+    },
+    vertexShader: `
+      varying vec3 vN;
+      varying vec3 vW;
+      void main() {
+        vN = normalize(normalMatrix * normal);
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vW = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vN;
+      varying vec3 vW;
+      uniform vec3 uInk;
+      uniform vec3 uPaper;
+      uniform vec3 uFog;
+      uniform float uFogDensity;
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      void main() {
+        vec3 N = normalize(vN);
+        vec3 V = normalize(cameraPosition - vW);
+        vec3 L = normalize(vec3(-0.35, 0.85, 0.4));
+        float lam = max(dot(N, L), 0.0);
+        lam = clamp(lam, 0.0, 1.0);
+        float q = floor(lam * 5.0) / 4.0;
+        vec3 col = mix(uInk, uPaper, q);
+        float rim = 1.0 - max(dot(N, V), 0.0);
+        col = mix(col, uInk, smoothstep(0.45, 0.95, rim) * 0.85);
+        float wash = noise(vW.xz * 1.6 + vec2(vW.y * 1.2, 0.0));
+        col *= 0.9 + 0.1 * wash;
+        col *= 0.97 + 0.03 * noise(vW.xz * 30.0);
+        float d = length(vW - cameraPosition);
+        float fog = 1.0 - exp(-pow(d * uFogDensity, 2.0));
+        gl_FragColor = vec4(mix(col, uFog, fog), 1.0);
+      }
+    `,
+    fog: false,
+  })
+}
+
+function makeMountainMaterial(theme: ThemeConfig): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uLow: { value: new THREE.Color(0x2f5d4a) },
+      uHigh: { value: new THREE.Color(0x33566b) },
+      uInk: { value: new THREE.Color(0x1b1a17) },
+      uGold: { value: new THREE.Color(0xc9a227) },
+      uFog: { value: new THREE.Color(theme.fog) },
+      uFogDensity: { value: theme.fogDensity * 0.5 },
+    },
+    vertexShader: `
+      varying vec3 vN;
+      varying vec3 vW;
+      void main() {
+        vN = normalize(normalMatrix * normal);
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vW = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vN;
+      varying vec3 vW;
+      uniform vec3 uLow;
+      uniform vec3 uHigh;
+      uniform vec3 uInk;
+      uniform vec3 uGold;
+      uniform vec3 uFog;
+      uniform float uFogDensity;
+      void main() {
+        vec3 N = normalize(vN);
+        vec3 V = normalize(cameraPosition - vW);
+        vec3 L = normalize(vec3(-0.35, 0.85, 0.4));
+        float lam = max(dot(N, L), 0.0);
+        float alt = clamp((vW.y - 0.2) / 4.2, 0.0, 1.0);
+        alt = smoothstep(0.05, 0.95, alt);
+        vec3 col = mix(uLow, uHigh, alt);
+        col = mix(col * 0.78, col, 0.35 + lam * 0.65);
+        float rim = 1.0 - max(dot(N, V), 0.0);
+        col = mix(col, uInk, smoothstep(0.55, 0.98, rim) * 0.6);
+        float ridge = smoothstep(0.7, 0.98, lam) * smoothstep(0.3, 0.85, alt);
+        col = mix(col, uGold, ridge * 0.35);
+        float d = length(vW - cameraPosition);
+        float fog = 1.0 - exp(-pow(d * uFogDensity, 2.0));
+        gl_FragColor = vec4(mix(col, uFog, fog), 1.0);
+      }
+    `,
+    fog: false,
+  })
+}
+function makeRidgeGeometry(width: number, height: number, seed: number): THREE.BufferGeometry {
+  const segs = 56
+  const positions: number[] = []
+  const alts: number[] = []
+  const ridgeY = (t: number) => {
+    const a = Math.sin(t * 9.0 + seed) * 0.34 + Math.sin(t * 21.0 + seed * 2.0) * 0.16 + Math.sin(t * 4.2 + seed * 3.0) * 0.3
+    return height * (0.62 + a * 0.34)
+  }
+  for (let i = 0; i < segs; i++) {
+    const t0 = i / segs
+    const t1 = (i + 1) / segs
+    const x0 = (t0 - 0.5) * width
+    const x1 = (t1 - 0.5) * width
+    const y0 = ridgeY(t0)
+    const y1 = ridgeY(t1)
+    positions.push(x0, 0, 0, x1, 0, 0, x1, y1, 0)
+    alts.push(0, 0, y1 / height)
+    positions.push(x0, 0, 0, x1, y1, 0, x0, y0, 0)
+    alts.push(0, y1 / height, y0 / height)
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('aAlt', new THREE.Float32BufferAttribute(alts, 1))
+  return geometry
+}
+
+function makeRidgeMaterial(theme: ThemeConfig): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uLow: { value: new THREE.Color(0x3a6b52) },
+      uHigh: { value: new THREE.Color(0x4a6f86) },
+      uGold: { value: new THREE.Color(0xd8b24a) },
+      uFog: { value: new THREE.Color(theme.fog) },
+      uFogDensity: { value: theme.fogDensity * 0.55 },
+    },
+    vertexShader: `
+      attribute float aAlt;
+      varying float vAlt;
+      varying vec3 vW;
+      void main() {
+        vAlt = aAlt;
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vW = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: `
+      varying float vAlt;
+      varying vec3 vW;
+      uniform vec3 uLow;
+      uniform vec3 uHigh;
+      uniform vec3 uGold;
+      uniform vec3 uFog;
+      uniform float uFogDensity;
+      void main() {
+        float alt = smoothstep(0.05, 0.95, vAlt);
+        vec3 col = mix(uLow, uHigh, alt);
+        col = mix(col * 0.82, col, 0.45 + alt * 0.55);
+        col = mix(col, uGold, smoothstep(0.88, 1.0, vAlt) * 0.5);
+        float d = length(vW - cameraPosition);
+        float fog = 1.0 - exp(-pow(d * uFogDensity, 2.0));
+        gl_FragColor = vec4(mix(col, uFog, fog), 1.0);
+      }
+    `,
+    transparent: true,
+    fog: false,
+  })
+}
 function start(canvas: HTMLCanvasElement): () => void {
   const themeId = resolveTheme()
   const theme = THEMES[themeId]
@@ -322,7 +499,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   renderer.toneMappingExposure = theme.exposure
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  const targetPixelRatio = Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15)
+  const targetPixelRatio = Math.min(window.devicePixelRatio || 1, tier === 'high' ? 2 : tier === 'medium' ? 1.6 : 1.2)
   renderer.setPixelRatio(Math.min(targetPixelRatio, 1))
 
   const scene = new THREE.Scene()
@@ -356,7 +533,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   const hole = new THREE.Path()
   hole.absarc(0, 1.85, 1.12, 0, Math.PI * 2, true)
   wallShape.holes.push(hole)
-  const wallMaterial = new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.95, metalness: 0 })
+  const wallMaterial = makeInkMaterial(theme, theme.wall, theme.daylight ? '#2a2620' : '#141210')
   const wall = new THREE.Mesh(
     new THREE.ExtrudeGeometry(wallShape, { depth: 0.22, bevelEnabled: false, curveSegments: 48 }),
     wallMaterial,
@@ -397,75 +574,45 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   // 石径（逐块石板）
-  const slabMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#9c9384' : '#4a4842', roughness: 0.92 })
-  for (let i = 0; i < 9; i++) {
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(1.9 + Math.random() * 0.2, 0.05, 0.62), slabMaterial)
-    slab.position.set((Math.random() - 0.5) * 0.12, 0.03, -3.0 + i * 0.86)
-    slab.rotation.y = (Math.random() - 0.5) * 0.04
-    scene.add(slab)
+  // 院中散石与矮丛
+  const rockMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#7d776a' : '#3a3a35', roughness: 1 })
+  for (const [x, z, s] of [[-3.4, -1.2, 0.34], [-2.6, 0.4, 0.22], [3.3, -1.6, 0.3], [2.7, 0.8, 0.2]] as const) {
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), rockMaterial)
+    rock.position.set(x, s * 0.5, z)
+    rock.rotation.set(Math.random(), Math.random(), Math.random())
+    rock.scale.set(1, 0.7, 0.9)
+    scene.add(rock)
+  }
+  const shrubMaterial = new THREE.MeshStandardMaterial({ color: 0x24301f, roughness: 1 })
+  for (const [x, z, s] of [[-4.1, -2.2, 0.42], [4.0, -2.4, 0.38]] as const) {
+    const shrub = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), shrubMaterial)
+    shrub.position.set(x, s * 0.8, z)
+    shrub.scale.set(1, 0.8, 1)
+    scene.add(shrub)
   }
 
-  // 门后的纵深：远墙 + 屋脊剪影 + 暖光
-  const beyond = new THREE.Mesh(
-    new THREE.PlaneGeometry(9, 5.5),
-    new THREE.MeshBasicMaterial({
-      map: makeBeyondTexture(),
-      color: theme.daylight ? 0xffffff : 0x8a7458,
-    }),
-  )
-  beyond.position.set(0, 2.2, -12)
-  scene.add(beyond)
-
-  // 门后远处的一道矮墙剪影，避免门洞看起来像窗框
-  const backWall = new THREE.Mesh(
-    new THREE.BoxGeometry(10, 0.64, 0.2),
-    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x5b4e3d : 0x1b1510 }),
-  )
-  backWall.position.set(0, 0.32, -11.4)
-  scene.add(backWall)
-
-  for (const x of [-2.9, 2.5]) {
-    const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.035, 0.045, 3.2, 6),
-      new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x4d5a42 : 0x1a2418 }),
-    )
-    pole.position.set(x, 1.6, -10.8)
-    scene.add(pole)
+  // 门后：三层青绿山脊剪影（近深远浅，海拔分色 + 山脊金线）
+  const ridgeSpecs: [number, number, number, number][] = [
+    [-0.4, -8.5, 15, 1.9],
+    [0.8, -12.0, 22, 2.6],
+    [-1.2, -17.0, 32, 3.6],
+  ]
+  for (const [x, z, w, h] of ridgeSpecs) {
+    const ridge = new THREE.Mesh(makeRidgeGeometry(w, h, Math.abs(z)), makeRidgeMaterial(theme))
+    ridge.position.set(x, 0.35, z)
+    scene.add(ridge)
   }
 
-  const backGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(12, 10),
-    new THREE.MeshStandardMaterial({ color: theme.daylight ? '#9a907c' : '#3a3830', roughness: 0.95 }),
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(34, 13),
+    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0xd4e2e6 : 0x2c3d4a, transparent: true, opacity: 0.16 }),
   )
-  backGround.rotation.x = -Math.PI / 2
-  backGround.position.set(0, 0.015, -8)
-  scene.add(backGround)
+  water.rotation.x = -Math.PI / 2
+  water.position.set(0, 0.01, -10.5)
+  scene.add(water)
 
-
-
-  // 门后夹道：让月洞门有真正的纵深
-  const corridorWallMaterial = new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x6a5f4f : 0x241d16 })
-  for (const side of [-1, 1]) {
-    const corridorWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.0, 5.8), corridorWallMaterial)
-    corridorWall.position.set(side * 1.52, 1.5, -6.7)
-    scene.add(corridorWall)
-  }
-  const corridorPath = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.85, 5.8),
-    new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.95 }),
-  )
-  corridorPath.rotation.x = -Math.PI / 2
-  corridorPath.position.set(0, 0.02, -6.7)
-  scene.add(corridorPath)
-  const endWall = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.1, 3.0),
-    new THREE.MeshBasicMaterial({ map: makeBeyondTexture(), color: theme.daylight ? 0xffffff : 0x9a8060 }),
-  )
-  endWall.position.set(0, 1.5, -9.55)
-  scene.add(endWall)
-
-  const beyondLight = new THREE.PointLight(theme.daylight ? 0xffe3b0 : 0xd4a853, theme.daylight ? 6 : 4, 18, 2)
-  beyondLight.position.set(0, 1.7, -8.6)
+  const beyondLight = new THREE.PointLight(0xffe3b0, theme.daylight ? 5 : 4.5, 26, 2)
+  beyondLight.position.set(0, 3.4, -13)
   scene.add(beyondLight)
 
   // 檐口与屋顶
@@ -490,7 +637,7 @@ function start(canvas: HTMLCanvasElement): () => void {
 
 
   // 两侧院墙
-  const sideWallMaterial = new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.95 })
+  const sideWallMaterial = makeInkMaterial(theme, theme.wall, theme.daylight ? '#2a2620' : '#141210')
   for (const side of [-1, 1]) {
     const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.6, 7.4), sideWallMaterial)
     sideWall.position.set(side * 5.55, 1.8, -0.3)
@@ -525,18 +672,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     return texture
   }
 
-  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.webp', true, 0.11, 0.11)
-  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.webp', false, 0.11, 0.11)
-  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.webp', false, 0.11, 0.11)
-  wallMaterial.color.set(theme.daylight ? '#ffffff' : '#9a9a9a')
-  wallMaterial.normalScale = new THREE.Vector2(0.35, 0.35)
-  wallMaterial.needsUpdate = true
 
-  groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 18, 18)
-  groundMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 18, 18)
-  groundMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 18, 18)
-  groundMaterial.color.set(theme.daylight ? '#cfc9bb' : '#6a6a66')
-  groundMaterial.needsUpdate = true
 
   pathMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 2, 5)
   pathMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 2, 5)
@@ -580,8 +716,27 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 石桌 · 铜钱 · 卦爻 ----------
   const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 1.3), altarMaterial)
-  altar.position.set(0, 0.35, 2.45)
+  const tableWood = new THREE.MeshStandardMaterial({ color: 0x3d3024, roughness: 0.78 })
+  const altar = new THREE.Group()
+  const tableTop = new THREE.Mesh(new RoundedBoxGeometry(1.98, 0.1, 1.28, 3, 0.018), altarMaterial)
+  tableTop.position.y = 0.65
+  altar.add(tableTop)
+  const apron = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.16, 1.16), tableWood)
+  apron.position.y = 0.52
+  altar.add(apron)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.44, 0.13), tableWood)
+      leg.position.set(sx * 0.8, 0.22, sz * 0.47)
+      altar.add(leg)
+    }
+  }
+  for (const sz of [-1, 1]) {
+    const stretcher = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.07, 0.08), tableWood)
+    stretcher.position.set(0, 0.14, sz * 0.47)
+    altar.add(stretcher)
+  }
+  altar.position.set(0, 0, 2.45)
   scene.add(altar)
 
   const tableLight = new THREE.PointLight(0xffd9a0, theme.daylight ? 3.2 : 6.5, 5.5, 2)
@@ -941,7 +1096,7 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0x2f4a52 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xb8432f : 0x1f1c18 })
     const bars: THREE.Mesh[] = []
     if (yang) {
       bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.012, 0.04), material))

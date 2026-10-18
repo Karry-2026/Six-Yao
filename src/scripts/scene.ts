@@ -50,10 +50,10 @@ const THEMES: Record<ThemeId, ThemeConfig> = {
     sunColor: 0xfff1d6,
     lantern: 0xd9a24a,
     bloom: 0.28,
-    exposure: 1.45,
-    hemi: 2.6,
-    sun: 2.4,
-    env: 0,
+    exposure: 1.05,
+    hemi: 0.45,
+    sun: 2.6,
+    env: 0.9,
     particles: { count: 420, color: 0xffffff, size: 0.01, speed: 0.05, drift: 0.22, opacity: 0.3, falls: false },
   },
   rain: {
@@ -70,10 +70,10 @@ const THEMES: Record<ThemeId, ThemeConfig> = {
     sunColor: 0xdfe9ee,
     lantern: 0xd9a24a,
     bloom: 0.4,
-    exposure: 1.3,
-    hemi: 2.0,
-    sun: 0.6,
-    env: 0,
+    exposure: 1.1,
+    hemi: 0.6,
+    sun: 0.9,
+    env: 0.65,
     particles: { count: 1600, color: 0xaebfc7, size: 0.011, speed: 0.95, drift: 0.02, opacity: 0.5, falls: true },
   },
   dusk: {
@@ -90,10 +90,10 @@ const THEMES: Record<ThemeId, ThemeConfig> = {
     sunColor: 0xffcf94,
     lantern: 0xd4a853,
     bloom: 0.8,
-    exposure: 1.15,
-    hemi: 1.1,
-    sun: 0.5,
-    env: 0,
+    exposure: 1.05,
+    hemi: 0.3,
+    sun: 0.15,
+    env: 0.05,
     particles: { count: 900, color: 0xd8cba8, size: 0.022, speed: 0.06, drift: 0.12, opacity: 0.6, falls: false },
   },
   snow: {
@@ -110,10 +110,10 @@ const THEMES: Record<ThemeId, ThemeConfig> = {
     sunColor: 0xdbe8f2,
     lantern: 0xd4a853,
     bloom: 0.7,
-    exposure: 1.2,
-    hemi: 1.4,
-    sun: 0.5,
-    env: 0,
+    exposure: 1.05,
+    hemi: 0.4,
+    sun: 0.25,
+    env: 0.12,
     particles: { count: 1200, color: 0xe8eef2, size: 0.03, speed: 0.12, drift: 0.16, opacity: 0.72, falls: true },
   },
 }
@@ -256,6 +256,8 @@ function start(canvas: HTMLCanvasElement): () => void {
   })
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = theme.exposure
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.setPixelRatio(
     Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15),
   )
@@ -439,6 +441,15 @@ function start(canvas: HTMLCanvasElement): () => void {
   scene.add(new THREE.HemisphereLight(new THREE.Color(theme.ambient), 0x14181a, theme.hemi))
   const sunLight = new THREE.DirectionalLight(theme.sunColor, theme.sun)
   sunLight.position.set(-4, 8, 4)
+  sunLight.castShadow = true
+  sunLight.shadow.mapSize.set(2048, 2048)
+  sunLight.shadow.camera.left = -9
+  sunLight.shadow.camera.right = 9
+  sunLight.shadow.camera.top = 9
+  sunLight.shadow.camera.bottom = -9
+  sunLight.shadow.camera.near = 0.5
+  sunLight.shadow.camera.far = 40
+  sunLight.shadow.bias = -0.0004
   scene.add(sunLight)
 
   // ---------- 环境贴图（CC0 HDRI，仅中高档异步加载） ----------
@@ -461,7 +472,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   if (tier !== 'low') {
     composer = new EffectComposer(renderer)
     composer.addPass(new RenderPass(scene, camera))
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), theme.bloom, 0.5, 0.85))
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), theme.bloom, 0.35, 0.92))
   }
 
   // ---------- 开场镜头 ----------
@@ -498,6 +509,18 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
   window.addEventListener('pointerdown', cancelIntro, { once: true })
   window.addEventListener('keydown', cancelIntro, { once: true })
+
+  // 所有实体参与投影与接收
+  scene.traverse((object) => {
+    const mesh = object as THREE.Mesh
+    if ((mesh as THREE.Mesh).isMesh) {
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    }
+  })
+  ground.receiveShadow = true
+  contactShadow.castShadow = false
+  contactShadow.receiveShadow = false
 
   // ---------- 循环 ----------
   const clock = new THREE.Clock()

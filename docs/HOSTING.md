@@ -59,3 +59,5 @@
 2. 在 `docs/ASSETS.md` 逐张登记
 3. 场景材质接入 albedo / normal / roughness
 4. 构建后统计 `dist/` 体积，超过 12 MB 就回头砍
+
+- 2026-10-18：贴图转 WebP 后，构建产物 6.0 MB → 3.2 MB，单次访问预算进一步下降。

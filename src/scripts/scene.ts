@@ -441,8 +441,29 @@ function start(canvas: HTMLCanvasElement): () => void {
 
 
 
+  // 门后夹道：让月洞门有真正的纵深
+  const corridorWallMaterial = new THREE.MeshBasicMaterial({ color: theme.daylight ? 0x6a5f4f : 0x241d16 })
+  for (const side of [-1, 1]) {
+    const corridorWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.0, 5.8), corridorWallMaterial)
+    corridorWall.position.set(side * 1.52, 1.5, -6.7)
+    scene.add(corridorWall)
+  }
+  const corridorPath = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.85, 5.8),
+    new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.95 }),
+  )
+  corridorPath.rotation.x = -Math.PI / 2
+  corridorPath.position.set(0, 0.02, -6.7)
+  scene.add(corridorPath)
+  const endWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.1, 3.0),
+    new THREE.MeshBasicMaterial({ map: makeBeyondTexture(), color: theme.daylight ? 0xffffff : 0x9a8060 }),
+  )
+  endWall.position.set(0, 1.5, -9.55)
+  scene.add(endWall)
+
   const beyondLight = new THREE.PointLight(theme.daylight ? 0xffe3b0 : 0xd4a853, theme.daylight ? 6 : 4, 18, 2)
-  beyondLight.position.set(0, 2.4, -7.4)
+  beyondLight.position.set(0, 1.7, -8.6)
   scene.add(beyondLight)
 
   // 檐口与屋顶
@@ -456,6 +477,13 @@ function start(canvas: HTMLCanvasElement): () => void {
   roof.position.set(0, 4.28, -4.34)
   roof.rotation.x = -0.62
   scene.add(roof)
+
+  const ridgeBeam = new THREE.Mesh(
+    new THREE.BoxGeometry(12.0, 0.24, 0.34),
+    new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.8 }),
+  )
+  ridgeBeam.position.set(0, 5.0, -5.55)
+  scene.add(ridgeBeam)
 
 
 
@@ -495,22 +523,22 @@ function start(canvas: HTMLCanvasElement): () => void {
     return texture
   }
 
-  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.jpg', true, 0.11, 0.11)
-  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.jpg', false, 0.11, 0.11)
-  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.jpg', false, 0.11, 0.11)
+  wallMaterial.map = loadMap('plastered_wall_02/plastered_wall_02_diff_1k.webp', true, 0.11, 0.11)
+  wallMaterial.normalMap = loadMap('plastered_wall_02/plastered_wall_02_nor_gl_1k.webp', false, 0.11, 0.11)
+  wallMaterial.roughnessMap = loadMap('plastered_wall_02/plastered_wall_02_rough_1k.webp', false, 0.11, 0.11)
   wallMaterial.color.set(theme.daylight ? '#ffffff' : '#9a9a9a')
   wallMaterial.normalScale = new THREE.Vector2(0.35, 0.35)
   wallMaterial.needsUpdate = true
 
-  groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.jpg', true, 18, 18)
-  groundMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.jpg', false, 18, 18)
-  groundMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.jpg', false, 18, 18)
+  groundMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 18, 18)
+  groundMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 18, 18)
+  groundMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 18, 18)
   groundMaterial.color.set(theme.daylight ? '#cfc9bb' : '#6a6a66')
   groundMaterial.needsUpdate = true
 
-  pathMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.jpg', true, 2, 5)
-  pathMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.jpg', false, 2, 5)
-  pathMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.jpg', false, 2, 5)
+  pathMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 2, 5)
+  pathMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 2, 5)
+  pathMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 2, 5)
   pathMaterial.color.set(theme.daylight ? '#e2dccd' : '#7a7a74')
   pathMaterial.needsUpdate = true
 
@@ -523,13 +551,13 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   // ---------- 瓦当（檐口一排半圆瓦） ----------
-  const tileGeometry = new THREE.CylinderGeometry(0.062, 0.062, 0.16, 12)
+  const tileGeometry = new THREE.CylinderGeometry(0.085, 0.085, 0.22, 12)
   const tileMaterial = new THREE.MeshStandardMaterial({ color: theme.roof, roughness: 0.8 })
   const tileCount = 72
   const tiles = new THREE.InstancedMesh(tileGeometry, tileMaterial, tileCount)
   const tileDummy = new THREE.Object3D()
   for (let i = 0; i < tileCount; i++) {
-    tileDummy.position.set(-5.78 + (i * 11.56) / (tileCount - 1), 3.62, -2.84)
+    tileDummy.position.set(-5.78 + (i * 11.56) / (tileCount - 1), 3.58, -2.76)
     tileDummy.rotation.set(Math.PI / 2, 0, 0)
     tileDummy.updateMatrix()
     tiles.setMatrixAt(i, tileDummy.matrix)

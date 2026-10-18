@@ -52,6 +52,7 @@ scripts/verify-hexagrams.mjs
 
 ## 文档
 
+- [视觉与交互规范](docs/ART-DIRECTION.md)
 - [产品需求](docs/PRD.md)
 - [技术方案](docs/ARCHITECTURE.md)
 - [视觉与 3D 设计](docs/DESIGN.md)

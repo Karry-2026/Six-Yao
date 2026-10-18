@@ -2,6 +2,7 @@
 import '@fontsource/cormorant-garamond/400.css'
 import '@fontsource/cormorant-garamond/600.css'
 const base = import.meta.env.BASE_URL
+const displayFont = `@font-face{font-family:'ZCOOL XiaoWei';src:url('${base}fonts/zcool-subset.woff2') format('woff2');font-display:swap;}`
 ---
 
 <!DOCTYPE html>
@@ -16,6 +17,8 @@ const base = import.meta.env.BASE_URL
     />
     <meta name="theme-color" content="#0d141a" />
     <link rel="icon" href={`${base}/favicon.svg`} />
+    <style set:html={displayFont}></style>
+    <link rel="preload" href={`${base}fonts/zcool-subset.woff2`} as="font" type="font/woff2" crossorigin />
     <style>
       :root {
         --ink: #e8e2d6;
@@ -42,6 +45,7 @@ const base = import.meta.env.BASE_URL
           linear-gradient(180deg, #0b1218 0%, #0d141a 55%, #080d11 100%);
         transition: opacity .8s ease;
       }
+      #poster h1, .result-card h2, .seal { font-family: 'ZCOOL XiaoWei', 'Songti SC', serif; }
       #poster h1 {
         font-size: clamp(2rem, 6vw, 3.4rem);
         font-weight: 400;

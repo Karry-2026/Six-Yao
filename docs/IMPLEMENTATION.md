@@ -32,7 +32,7 @@ resolveTheme() → 读 URL / sessionStorage / 北京时间
 
 ## 3. 主题系统
 
-三套氛围共用一套场景，差异只在 `THEMES` 配置：
+四套氛围（白天：晴昼 / 烟雨；夜间：暮夜 / 雪夜）共用一套场景，差异只在 `THEMES` 配置：
 
 ```ts
 interface ThemeConfig {
@@ -47,7 +47,7 @@ interface ThemeConfig {
 
 1. `?theme=dusk|rain|snow`（分享与调试用）；
 2. `sessionStorage['sy-theme']`（同一会话内稳定）；
-3. 北京时间：06:00–17:59 → `dusk`；其余时间在 `rain` / `snow` 中随机。
+3. 北京时间：06:00–17:59 在 `clear` / `rain` 中随机；其余时间在 `dusk` / `snow` 中随机。
 
 新增一套主题：在 `THEMES` 里加一个 key，补全字段即可，不需要改场景代码。若要新粒子形态（如落叶），在粒子更新分支里加一种 `themeId` 判断。
 

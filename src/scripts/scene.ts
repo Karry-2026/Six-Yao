@@ -416,6 +416,74 @@ function makeMountainMaterial(theme: ThemeConfig): THREE.ShaderMaterial {
     fog: false,
   })
 }
+function makeRidgeGeometry(width: number, height: number, seed: number): THREE.BufferGeometry {
+  const segs = 56
+  const positions: number[] = []
+  const alts: number[] = []
+  const ridgeY = (t: number) => {
+    const a = Math.sin(t * 9.0 + seed) * 0.34 + Math.sin(t * 21.0 + seed * 2.0) * 0.16 + Math.sin(t * 4.2 + seed * 3.0) * 0.3
+    return height * (0.62 + a * 0.34)
+  }
+  for (let i = 0; i < segs; i++) {
+    const t0 = i / segs
+    const t1 = (i + 1) / segs
+    const x0 = (t0 - 0.5) * width
+    const x1 = (t1 - 0.5) * width
+    const y0 = ridgeY(t0)
+    const y1 = ridgeY(t1)
+    positions.push(x0, 0, 0, x1, 0, 0, x1, y1, 0)
+    alts.push(0, 0, y1 / height)
+    positions.push(x0, 0, 0, x1, y1, 0, x0, y0, 0)
+    alts.push(0, y1 / height, y0 / height)
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('aAlt', new THREE.Float32BufferAttribute(alts, 1))
+  return geometry
+}
+
+function makeRidgeMaterial(theme: ThemeConfig): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uLow: { value: new THREE.Color(0x3a6b52) },
+      uHigh: { value: new THREE.Color(0x4a6f86) },
+      uGold: { value: new THREE.Color(0xd8b24a) },
+      uFog: { value: new THREE.Color(theme.fog) },
+      uFogDensity: { value: theme.fogDensity * 0.55 },
+    },
+    vertexShader: `
+      attribute float aAlt;
+      varying float vAlt;
+      varying vec3 vW;
+      void main() {
+        vAlt = aAlt;
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vW = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: `
+      varying float vAlt;
+      varying vec3 vW;
+      uniform vec3 uLow;
+      uniform vec3 uHigh;
+      uniform vec3 uGold;
+      uniform vec3 uFog;
+      uniform float uFogDensity;
+      void main() {
+        float alt = smoothstep(0.05, 0.95, vAlt);
+        vec3 col = mix(uLow, uHigh, alt);
+        col = mix(col * 0.82, col, 0.45 + alt * 0.55);
+        col = mix(col, uGold, smoothstep(0.88, 1.0, vAlt) * 0.5);
+        float d = length(vW - cameraPosition);
+        float fog = 1.0 - exp(-pow(d * uFogDensity, 2.0));
+        gl_FragColor = vec4(mix(col, uFog, fog), 1.0);
+      }
+    `,
+    transparent: true,
+    fog: false,
+  })
+}
 function start(canvas: HTMLCanvasElement): () => void {
   const themeId = resolveTheme()
   const theme = THEMES[themeId]
@@ -523,26 +591,24 @@ function start(canvas: HTMLCanvasElement): () => void {
     scene.add(shrub)
   }
 
-  // 门后：青绿山水与水面（guofeng-threejs 的海拔分色）
-  const mountainMaterial = makeMountainMaterial(theme)
-  const mountainSpecs: [number, number, number, number][] = [
-    [-5.2, -17.5, 7.5, 3.4],
-    [0.4, -20.5, 10.0, 4.4],
-    [5.4, -16.5, 6.5, 2.7],
+  // 门后：三层青绿山脊剪影（近深远浅，海拔分色 + 山脊金线）
+  const ridgeSpecs: [number, number, number, number][] = [
+    [-0.4, -8.5, 15, 1.9],
+    [0.8, -12.0, 22, 2.6],
+    [-1.2, -17.0, 32, 3.6],
   ]
-  for (const [x, z, s, h] of mountainSpecs) {
-    const mountain = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), mountainMaterial)
-    mountain.position.set(x, h * 0.34, z)
-    mountain.scale.set(s, h, s * 0.62)
-    scene.add(mountain)
+  for (const [x, z, w, h] of ridgeSpecs) {
+    const ridge = new THREE.Mesh(makeRidgeGeometry(w, h, Math.abs(z)), makeRidgeMaterial(theme))
+    ridge.position.set(x, 0.35, z)
+    scene.add(ridge)
   }
 
   const water = new THREE.Mesh(
-    new THREE.PlaneGeometry(46, 28),
-    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0xd4e2e6 : 0x2c3d4a, transparent: true, opacity: 0.2 }),
+    new THREE.PlaneGeometry(34, 13),
+    new THREE.MeshBasicMaterial({ color: theme.daylight ? 0xd4e2e6 : 0x2c3d4a, transparent: true, opacity: 0.16 }),
   )
   water.rotation.x = -Math.PI / 2
-  water.position.set(0, 0.01, -12)
+  water.position.set(0, 0.01, -10.5)
   scene.add(water)
 
   const beyondLight = new THREE.PointLight(0xffe3b0, theme.daylight ? 5 : 4.5, 26, 2)

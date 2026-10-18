@@ -321,17 +321,16 @@ function start(canvas: HTMLCanvasElement): () => void {
   renderer.toneMappingExposure = theme.exposure
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  renderer.setPixelRatio(
-    Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15),
-  )
+  const targetPixelRatio = Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15)
+  renderer.setPixelRatio(Math.min(targetPixelRatio, 1))
 
   const scene = new THREE.Scene()
   scene.background = makeSkyTexture(theme.sky)
   scene.fog = new THREE.FogExp2(new THREE.Color(theme.fog), theme.fogDensity)
 
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 160)
-  const FINAL_POS = new THREE.Vector3(0, 1.62, 6.2)
-  const LOOK_AT = new THREE.Vector3(0, 1.55, -3.4)
+  const FINAL_POS = new THREE.Vector3(0, 1.9, 5.6)
+  const LOOK_AT = new THREE.Vector3(0, 1.08, 1.35)
   camera.position.copy(FINAL_POS)
   camera.lookAt(LOOK_AT)
 
@@ -544,6 +543,15 @@ function start(canvas: HTMLCanvasElement): () => void {
   pathMaterial.color.set(theme.daylight ? '#e2dccd' : '#7a7a74')
   pathMaterial.needsUpdate = true
 
+  // 石桌在贴图段之后才声明，延后一拍再贴材质，避免 TDZ
+  window.setTimeout(() => {
+    altarMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 2, 1.4)
+    altarMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 2, 1.4)
+    altarMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 2, 1.4)
+    altarMaterial.color.set(theme.daylight ? '#b9ae98' : '#8a8478')
+    altarMaterial.needsUpdate = true
+  }, 0)
+
   // ---------- 石阶 ----------
   const stepMaterial = new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.9 })
   for (let i = 0; i < 2; i++) {
@@ -570,10 +578,14 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 石桌 · 铜钱 · 卦爻 ----------
   const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 0.95), altarMaterial)
-  altar.position.set(0, 0.3, 3.35)
+  const altar = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.72, 1.55), altarMaterial)
+  altar.position.set(0, 0.36, 2.5)
   scene.add(altar)
-  const ALTAR_TOP = 0.6
+
+  const tableLight = new THREE.PointLight(0xffd9a0, theme.daylight ? 3.2 : 6.5, 5.5, 2)
+  tableLight.position.set(0, 1.55, 2.45)
+  scene.add(tableLight)
+  const ALTAR_TOP = 0.72
 
   const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
   const coins: THREE.Mesh[] = []
@@ -586,8 +598,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, 1.62, 1.9)
-  lineGroup.scale.setScalar(0.78)
+  lineGroup.position.set(0, ALTAR_TOP + 0.012, 2.5)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -595,7 +606,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     lineSlots.length = 0
     for (let i = 0; i < 6; i++) {
       const slot = new THREE.Group()
-      slot.position.y = -0.38 + i * 0.15
+      slot.position.z = 0.36 - i * 0.144
       lineGroup.add(slot)
       lineSlots.push(slot)
     }
@@ -743,7 +754,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   // ---------- 环境贴图（CC0 HDRI，仅中高档异步加载） ----------
   if (tier !== 'low' && theme.env > 0) {
     const pmrem = new THREE.PMREMGenerator(renderer)
-    new RGBELoader()
+    const loadEnv = () => new RGBELoader()
       .loadAsync(`${base}env/courtyard_1k.hdr`)
       .then((texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping
@@ -753,6 +764,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       })
       .catch((error) => console.warn('[six-yao] 环境贴图加载失败，使用灯光兜底', error))
       .finally(() => pmrem.dispose())
+    window.setTimeout(loadEnv, 1600)
   }
 
   // ---------- 后处理 ----------
@@ -774,9 +786,9 @@ function start(canvas: HTMLCanvasElement): () => void {
   })()
   const introDuration = 4
   const introCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(1.1, 2.0, 13.4),
-    new THREE.Vector3(0.6, 1.85, 10.4),
-    new THREE.Vector3(0.2, 1.7, 7.8),
+    new THREE.Vector3(1.3, 2.7, 12.2),
+    new THREE.Vector3(0.7, 2.45, 9.2),
+    new THREE.Vector3(0.3, 2.15, 7.0),
     FINAL_POS,
   ])
   const skipIntro = new URLSearchParams(location.search).get('intro') === '0'
@@ -876,7 +888,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       const p = Math.min((performance.now() - coinAnim.start) / 900, 1)
       const e = 1 - Math.pow(1 - p, 3)
       coins.forEach((coin, i) => {
-        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.35, ALTAR_TOP + 0.012, e), 3.35)
+        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.25, ALTAR_TOP + 0.012, e), 2.5)
         coin.rotation.x = Math.PI / 2
         coin.rotation.z = p * 14 + i * 1.7
       })
@@ -903,13 +915,13 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xe0b866 : 0xe8dfc8, transparent: true, opacity: 0 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0xe9e4d8, transparent: true, opacity: 0 })
     const bars: THREE.Mesh[] = []
     if (yang) {
-      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.048, 0.02), material))
+      bars.push(new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.012, 0.05), material))
     } else {
-      for (const dx of [-0.24, 0.24]) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.048, 0.02), material)
+      for (const dx of [-0.32, 0.32]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.012, 0.05), material)
         bar.position.x = dx
         bars.push(bar)
       }
@@ -939,7 +951,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       coinAnim.active = true
       coins.forEach((coin, i) => {
         coin.visible = true
-        coin.position.set(-0.34 + i * 0.34, ALTAR_TOP + 1.35, 3.35)
+        coin.position.set(-0.42 + i * 0.42, ALTAR_TOP + 1.25, 2.5)
       })
       window.setTimeout(() => resolve(faces), 950)
     })
@@ -1035,6 +1047,11 @@ function start(canvas: HTMLCanvasElement): () => void {
   })
 
   frame()
+
+  window.setTimeout(() => {
+    renderer.setPixelRatio(targetPixelRatio)
+    resize()
+  }, 1500)
 
   return () => {
     cancelAnimationFrame(raf)

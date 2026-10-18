@@ -1,67 +1,69 @@
 # 六爻 · 易经六十四卦
 
-一个基于《周易》六爻占法的在线起卦工具。三枚铜钱掷六次成卦，自动推演**本卦、互卦、变卦**，并给出卦辞、象辞、白话解读与分方面提示。
+一个写实风格的 3D 在线起卦工具：走进一方庭院，在石桌前掷六次铜钱，逐爻成卦。
 
 **在线体验：<https://karry-2026.github.io/Six-Yao/>**
 
-![界面预览](docs/preview.png)
+![庭院与起卦](docs/preview.png)
 
 ## 功能
 
-- **六爻起卦**：三枚铜钱掷六次，逐爻生成，支持老阴 / 少阳 / 少阴 / 老阳四种爻
-- **卦象推演**：由本卦自动计算互卦（内在变化）与变卦（发展趋势），并标注动爻
-- **完整卦库**：内置六十四卦，含卦名、拼音、卦辞、象辞、白话解读与吉凶等级
-- **分方面提示**：事业 / 感情 / 财运 / 健康 / 学业五个维度的解读
-- **占卜记录**：结果保存在浏览器本地（`localStorage`），可回看、可清空
-- **卦库检索**：按卦名搜索，点击查看详情
-- **响应式与动效**：适配手机；尊重系统「减少动态效果」设置
-- **离线可用**：单文件、零依赖，下载后双击即可运行
+- **3D 庭院场景**：程序化几何 + CC0 PBR 贴图，IBL 环境光与实时阴影
+- **四种氛围**：晴昼 / 烟雨 / 暮夜 / 雪夜，按北京时间自动切换，`?theme=` 可指定
+- **起卦流程**：三枚铜钱落桌 → 六爻逐爻亮起 → 本卦、互卦、变卦推演
+- **结果解读**：卦名、卦辞、白话解读、动爻标注（初九…上六）
+- **环境音**：WebAudio 合成的风声与钟磬，默认静音，可随时开关
+- **开场镜头**：4 秒推进入院，可跳过；`prefers-reduced-motion` 时自动跳过
+- **降级**：无 WebGL 的设备回退到静态海报，功能与信息完整
 
-## 技术说明
+## 技术栈
 
-原生 HTML + CSS + JavaScript，**无框架、无构建、无后端**。全部代码与六十四卦数据都在一个文件里，便于分发和离线保存。
-
-| 项目 | 说明 |
+| 层 | 选择 |
 |---|---|
-| 渲染 | 原生 DOM 操作，三个页面（占卜 / 记录 / 卦库）切换 |
-| 随机数 | `crypto.getRandomValues` 生成，非 `Math.random` |
-| 数据 | 六十四卦以 JS 数组内置，卦辞、象辞为传统文本 |
-| 存储 | `localStorage`，键名 `iching_history` |
-| 字体 | Google Fonts（Noto Serif SC / Noto Sans SC / DM Mono） |
+| 站点框架 | Astro 5（静态生成） |
+| 3D | three.js（WebGL2），程序化场景 + 局部后处理 |
+| 语言 | TypeScript |
+| 部署 | GitHub Actions → GitHub Pages |
+| 素材 | Poly Haven CC0（HDRI / 灰泥 / 石材），明细见 `docs/ASSETS.md` |
 
-## 项目结构
-
-```
-Six-Yao/
-├── index.html      # 应用本体（页面 + 样式 + 逻辑 + 数据）
-├── iching.html     # 旧地址，自动跳转到首页
-├── docs/
-│   └── preview.png # README 预览图
-├── LICENSE
-└── README.md
-```
-
-## 本地运行
-
-直接双击 `index.html` 即可。若需通过本地服务器访问：
+## 本地开发
 
 ```bash
-python -m http.server 8000
-# 打开 http://localhost:8000
+npm install
+npm run dev      # http://localhost:4321/Six-Yao/
+npm run build    # 产物在 dist/
+npm run preview  # 以 /Six-Yao 前缀预览构建产物
+npm run verify   # 64 卦数据、掷币规则、互卦/变卦推演校验
 ```
 
-## 设计说明
+## 目录
 
-界面取米白底色与墨绿主色，标题用宋体、正文用黑体，贴合《周易》的阅读气质；起卦过程用呼吸圆与铜钱翻转做节奏提示，避免结果出现得过于突兀。
+```
+src/
+├── pages/index.astro     # 海报、界面、结果卡
+├── scripts/scene.ts      # 场景、主题、光照、起卦交互
+├── lib/hexagram.ts       # 掷币与卦象推演
+├── lib/ambient.ts        # WebAudio 环境音
+├── data/hexagrams.json   # 六十四卦数据
+docs/                     # PRD、架构、设计、路线图、素材与托管预算
+scripts/verify-hexagrams.mjs
+.github/workflows/deploy.yml
+```
 
-## 关于 AI 协作
+## 文档
 
-这个项目由作者主导完成：选题、卦辞内容的选取与校对、交互流程与最终验收由作者负责；页面实现由 AI 辅助生成，作者逐轮调整。作者并非编程从业者，本项目是一次「用 AI 把想法做成可用产品」的实践。
+- [产品需求](docs/PRD.md)
+- [技术方案](docs/ARCHITECTURE.md)
+- [视觉与 3D 设计](docs/DESIGN.md)
+- [开发计划](docs/ROADMAP.md)
+- [实现说明](docs/IMPLEMENTATION.md)
+- [素材清单与许可](docs/ASSETS.md)
+- [托管容量预算](docs/HOSTING.md)
+
+## 许可
+
+代码以 [MIT](LICENSE) 发布；外部素材均为 CC0，来源记录在 `docs/ASSETS.md`。
 
 ## 免责声明
 
-本工具依据中国传统《周易》六爻占法编写，仅供文化研究、学术探讨与个人娱乐参考。所有卦象解读基于传统易学理论，不代表科学结论，不构成任何专业建议。请理性看待占卜结果，独立做出决策。
-
-## License
-
-[MIT](LICENSE)
+本工具依据中国传统《周易》六爻占法编写，仅供文化研究与娱乐参考。卦象解读基于传统易学理论，不构成任何专业建议。

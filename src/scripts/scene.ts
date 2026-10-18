@@ -694,6 +694,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   if (tier !== 'low') {
     composer = new EffectComposer(renderer)
     composer.addPass(new RenderPass(scene, camera))
+
     composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), theme.bloom, 0.35, 0.92))
   }
 

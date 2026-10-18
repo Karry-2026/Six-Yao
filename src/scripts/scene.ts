@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { read, type Yao } from '../lib/hexagram'
+import { ambient } from '../lib/ambient'
 
 type ThemeId = 'clear' | 'rain' | 'dusk' | 'snow'
 
@@ -569,10 +570,10 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 石桌 · 铜钱 · 卦爻 ----------
   const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.66, 1.1), altarMaterial)
-  altar.position.set(0, 0.33, 2.9)
+  const altar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 0.95), altarMaterial)
+  altar.position.set(0, 0.3, 3.35)
   scene.add(altar)
-  const ALTAR_TOP = 0.66
+  const ALTAR_TOP = 0.6
 
   const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
   const coins: THREE.Mesh[] = []
@@ -585,8 +586,8 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, 1.28, 1.95)
-  lineGroup.scale.setScalar(0.8)
+  lineGroup.position.set(0, 1.62, 1.9)
+  lineGroup.scale.setScalar(0.78)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -875,7 +876,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       const p = Math.min((performance.now() - coinAnim.start) / 900, 1)
       const e = 1 - Math.pow(1 - p, 3)
       coins.forEach((coin, i) => {
-        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.35, ALTAR_TOP + 0.012, e), 2.9)
+        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.35, ALTAR_TOP + 0.012, e), 3.35)
         coin.rotation.x = Math.PI / 2
         coin.rotation.z = p * 14 + i * 1.7
       })
@@ -924,15 +925,21 @@ function start(canvas: HTMLCanvasElement): () => void {
     step()
   }
 
-  const tossRound = () =>
+  const facesForValue = (value: number) => {
+    const heads = value - 6
+    const faces = [heads >= 1, heads >= 2, heads >= 3]
+    return faces.sort(() => Math.random() - 0.5)
+  }
+
+  const tossRound = (forced?: boolean[]) =>
     new Promise<boolean[]>((resolve) => {
-      const faces = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5]
+      const faces = forced ?? [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5]
       coinAnim.faces = faces
       coinAnim.start = performance.now()
       coinAnim.active = true
       coins.forEach((coin, i) => {
         coin.visible = true
-        coin.position.set(-0.34 + i * 0.34, ALTAR_TOP + 1.35, 2.9)
+        coin.position.set(-0.34 + i * 0.34, ALTAR_TOP + 1.35, 3.35)
       })
       window.setTimeout(() => resolve(faces), 950)
     })
@@ -946,9 +953,18 @@ function start(canvas: HTMLCanvasElement): () => void {
     resultCard?.classList.remove('open')
     if (ritualBtn) ritualBtn.style.display = 'none'
 
+    ambient.enable()
+    ambient.bell('start')
+
+    const forcedRaw = new URLSearchParams(location.search).get('values')
+    const forcedValues = forcedRaw
+      ? forcedRaw.split(',').map((v) => Number(v.trim())).filter((v) => v >= 6 && v <= 9)
+      : []
+    const useForced = forcedValues.length === 6
+
     const values: Yao[] = []
     for (let i = 0; i < 6; i++) {
-      const faces = await tossRound()
+      const faces = await tossRound(useForced ? facesForValue(forcedValues[i]) : undefined)
       const heads = faces.filter(Boolean).length
       const value = (6 + heads) as Yao
       values.push(value)
@@ -967,6 +983,42 @@ function start(canvas: HTMLCanvasElement): () => void {
     if (pinyinEl) pinyinEl.textContent = reading.primaryHex.pinyin
     if (judgmentEl) judgmentEl.textContent = reading.primaryHex.judgment
     if (interpEl) interpEl.textContent = reading.primaryHex.interpretation
+
+    const positions = ['初', '二', '三', '四', '五', '上']
+    const yaoLabel = (index: number, yang: boolean) => {
+      if (index === 0) return yang ? '初九' : '初六'
+      if (index === 5) return yang ? '上九' : '上六'
+      return (yang ? '九' : '六') + positions[index]
+    }
+    const glyphEl = document.getElementById('resultGlyph')
+    if (glyphEl) {
+      glyphEl.innerHTML = ''
+      for (let i = 5; i >= 0; i--) {
+        const row = document.createElement('div')
+        row.className = 'glyph-row' + (reading.moving.includes(i) ? ' moving' : '')
+        const bars = reading.primary[i] === 1 ? 1 : 2
+        for (let b = 0; b < bars; b++) {
+          const bar = document.createElement('div')
+          bar.className = 'glyph-bar'
+          row.appendChild(bar)
+        }
+        glyphEl.appendChild(row)
+      }
+    }
+
+    const hexesEl = document.getElementById('resultHexes')
+    const movingEl = document.getElementById('resultMoving')
+    if (hexesEl) {
+      hexesEl.textContent = `本卦 ${reading.primaryHex.name} · 互卦 ${reading.mutualHex.name}` +
+        (reading.changedHex ? ` · 变卦 ${reading.changedHex.name}` : '')
+    }
+    if (movingEl) {
+      movingEl.textContent = reading.moving.length
+        ? `动爻：${reading.moving.map((index) => yaoLabel(index, reading.primary[index] === 1)).join('、')}`
+        : '静卦 · 无动爻'
+    }
+
+    ambient.bell('end')
     resultCard?.classList.add('open')
     ritualBusy = false
   }

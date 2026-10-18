@@ -7,7 +7,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check",`n    "verify": "node scripts/verify-hexagrams.mjs"
+    "check": "astro check",
+    "verify": "node scripts/verify-hexagrams.mjs"
   },
   "dependencies": {
     "astro": "^5.0.0",

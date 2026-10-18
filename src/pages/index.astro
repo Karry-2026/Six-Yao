@@ -1,0 +1,172 @@
+---
+const base = import.meta.env.BASE_URL
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>易经六十四卦 · 六爻在线起卦</title>
+    <meta
+      name="description"
+      content="一方庭院，一炷香，六次掷币。基于《周易》六爻占法的在线起卦工具。"
+    />
+    <meta name="theme-color" content="#0d141a" />
+    <link rel="icon" href={`${base}/favicon.svg`} />
+    <style>
+      :root {
+        --ink: #e8e2d6;
+        --dim: #9aa3a8;
+        --accent: #d4a853;
+        --bg: #0d141a;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+        overflow: hidden;
+      }
+
+      /* 静态海报：3D 就绪前一直显示 */
+      #poster {
+        position: fixed; inset: 0; z-index: 2;
+        display: grid; place-content: center; justify-items: center;
+        gap: 18px;
+        background:
+          radial-gradient(circle at 50% 28%, rgba(212,168,83,.10), transparent 42%),
+          linear-gradient(180deg, #0b1218 0%, #0d141a 55%, #080d11 100%);
+        transition: opacity .8s ease;
+      }
+      #poster h1 {
+        font-size: clamp(2rem, 6vw, 3.4rem);
+        font-weight: 400;
+        letter-spacing: .22em;
+        text-indent: .22em;
+      }
+      #poster p { color: var(--dim); letter-spacing: .18em; font-size: .85rem; }
+      #poster .rule { width: 46px; height: 1px; background: rgba(212,168,83,.5); }
+      .btn {
+        margin-top: 10px;
+        padding: 13px 34px;
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid rgba(232,226,214,.35);
+        border-radius: 2px;
+        font-family: inherit;
+        font-size: .95rem;
+        letter-spacing: .3em;
+        text-indent: .3em;
+        cursor: pointer;
+        transition: border-color .3s, background .3s;
+      }
+      .btn:hover { border-color: var(--accent); background: rgba(212,168,83,.06); }
+      .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+      body.ready #poster { display: none; }
+
+      canvas#scene {
+        position: fixed; inset: 0; width: 100%; height: 100%;
+        display: block; opacity: 0; transition: opacity 1.2s ease;
+      }
+      body.ready canvas#scene { opacity: 1; }
+
+      /* 无 WebGL：海报即最终界面 */
+      body.no-webgl canvas#scene { display: none; }
+      body.no-webgl #poster { background: linear-gradient(180deg, #0b1218, #080d11); }
+
+      .ritual-btn {
+        position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
+        z-index: 3; opacity: 0; pointer-events: none; transition: opacity .6s ease;
+      }
+      body.ready .ritual-btn { opacity: 1; pointer-events: auto; }
+
+      .result-card {
+        position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);
+        z-index: 4; width: min(560px, calc(100vw - 40px));
+        padding: 22px 26px 20px;
+        background: rgba(12, 18, 23, .82);
+        border: 1px solid rgba(232, 226, 214, .18);
+        border-radius: 4px;
+        backdrop-filter: blur(10px);
+        color: var(--ink);
+        display: none;
+      }
+      .result-card.open { display: block; }
+      .result-eyebrow { color: var(--accent); font-size: .75rem; letter-spacing: .25em; }
+      .result-card h2 { font-size: 1.6rem; font-weight: 400; letter-spacing: .16em; margin: 6px 0 2px; }
+      .result-pinyin { color: var(--dim); font-size: .8rem; letter-spacing: .1em; margin-bottom: 12px; }
+      .result-judgment { font-size: .95rem; line-height: 1.9; color: #cfc7b8; margin-bottom: 8px; }
+      .result-interp { font-size: .85rem; line-height: 1.85; color: #a9a294; margin-bottom: 16px; }
+      .result-card .btn-sm { font-size: .8rem; padding: 9px 22px; }
+      :global(.glyph) { display: flex; flex-direction: column; gap: 6px; width: 132px; margin: 12px 0 14px; }
+      :global(.glyph-row) { display: flex; gap: 8px; height: 7px; }
+      :global(.glyph-bar) { flex: 1; background: #e8dfc8; border-radius: 1px; }
+      :global(.glyph-row.moving .glyph-bar) { background: #e0b866; box-shadow: 0 0 8px rgba(224,184,102,.5); }
+      .result-sub { font-size: .8rem; color: #b8b0a2; letter-spacing: .04em; margin: 2px 0; }
+      .sound-btn {
+        position: fixed; top: 18px; right: 18px; z-index: 5;
+        background: rgba(12,18,23,.6); color: #cfc7b8;
+        border: 1px solid rgba(232,226,214,.2); border-radius: 2px;
+        padding: 7px 14px; font-family: inherit; font-size: .75rem;
+        letter-spacing: .1em; cursor: pointer; backdrop-filter: blur(6px);
+      }
+      .sound-btn:hover { border-color: var(--accent); }
+
+      @media (max-width: 640px) {
+        .result-card { bottom: 16px; padding: 18px; }
+        .ritual-btn { bottom: 20px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #poster, canvas#scene { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="poster">
+      <h1>易经六十四卦</h1>
+      <div class="rule"></div>
+      <p>心诚则灵 · 以卦明理</p>
+      <button class="btn" id="begin" type="button">抽 取 一 卦</button>
+    </div>
+    <canvas id="scene" aria-hidden="true"></canvas>
+
+    <button id="ritualBtn" class="btn ritual-btn" type="button">抽 取 一 卦</button>
+    <button id="soundBtn" class="sound-btn" type="button" aria-pressed="false">声音 · 关</button>
+
+    <section id="result" class="result-card" aria-live="polite">
+      <div class="result-eyebrow">第 <span id="resultNumber"></span> 卦</div>
+      <h2 id="resultName"></h2>
+      <p id="resultPinyin" class="result-pinyin"></p>
+      <div id="resultGlyph" class="glyph" aria-hidden="true"></div>
+      <p id="resultHexes" class="result-sub"></p>
+      <p id="resultMoving" class="result-sub"></p>
+      <p id="resultJudgment" class="result-judgment"></p>
+      <p id="resultInterp" class="result-interp"></p>
+      <button id="againBtn" class="btn btn-sm" type="button">再 占 一 卦</button>
+    </section>
+    <noscript><p style="position:fixed;inset:0;display:grid;place-content:center">请启用 JavaScript。</p></noscript>
+    <script>
+      import { ambient } from '../lib/ambient'
+      const soundBtn = document.getElementById('soundBtn')
+      const syncSound = () => {
+        if (soundBtn) soundBtn.textContent = ambient.muted ? '声音 · 关' : '声音 · 开'
+      }
+      soundBtn?.addEventListener('click', () => {
+        ambient.toggle()
+        syncSound()
+      })
+      syncSound()
+
+      // 3D 不进首屏关键路径：海报先出，空闲时再拉 3D 模块
+      const start = () => import('../scripts/scene').then((mod) => mod.boot())
+      const idle = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void })
+        .requestIdleCallback
+      if (typeof idle === 'function') idle(start, { timeout: 1200 })
+      else window.setTimeout(start, 400)
+    </script>
+  </body>
+</html>

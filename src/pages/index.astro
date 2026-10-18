@@ -139,6 +139,80 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
         .ritual-btn { bottom: 20px; }
       }
 
+  
+      .ritual-progress {
+        position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+        z-index: 3; color: #cfc0a0; letter-spacing: .5em;
+        font-size: .8rem; opacity: .85; pointer-events: none;
+      }
+      .corner-nav {
+        position: fixed; left: 22px; bottom: 24px; z-index: 5;
+        display: flex; gap: 10px;
+      }
+      .nav-btn {
+        font-family: inherit; font-size: .78rem; letter-spacing: .18em;
+        padding: 7px 14px; color: #d8cdb6; background: rgba(20, 18, 15, .55);
+        border: 1px solid rgba(216, 205, 182, .3); cursor: pointer;
+      }
+      .nav-btn:hover { border-color: #c9a227; }
+      .panel {
+        position: fixed; left: 0; top: 0; bottom: 0; width: min(340px, 86vw);
+        z-index: 6; background: #d8cdb6; color: #1b1a17;
+        border-right: 1px solid rgba(27, 26, 23, .35);
+        transform: translateX(-102%); transition: transform .35s ease;
+        display: flex; flex-direction: column; padding: 18px 18px 14px;
+        overflow: hidden;
+      }
+      .panel.open { transform: translateX(0); }
+      .panel-head {
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 1.02rem; letter-spacing: .22em; padding-bottom: 10px;
+        border-bottom: 1px solid rgba(27, 26, 23, .2);
+      }
+      .panel-close {
+        border: none; background: none; font-size: 1.1rem; color: #1b1a17;
+        cursor: pointer; line-height: 1; padding: 2px 6px;
+      }
+      .panel-search {
+        margin: 12px 0 8px; padding: 8px 10px; font-family: inherit;
+        font-size: .82rem; color: #1b1a17; background: rgba(255, 250, 240, .5);
+        border: 1px solid rgba(27, 26, 23, .28); outline: none;
+      }
+      .panel-search:focus { border-color: #a63b2a; }
+      .history-list { list-style: none; margin: 6px 0 0; padding: 0; overflow-y: auto; flex: 1; }
+      :global(.history-item) {
+        display: flex; align-items: baseline; gap: 10px; padding: 9px 4px;
+        border-bottom: 1px dashed rgba(27, 26, 23, .18); cursor: pointer;
+      }
+      :global(.history-item:hover) { color: #a63b2a; }
+      :global(.history-time) { font-size: .72rem; color: #6b6357; min-width: 74px; }
+      :global(.history-name) { flex: 1; font-size: .98rem; letter-spacing: .1em; }
+      :global(.history-fortune) { font-size: .7rem; color: #a63b2a; }
+      .panel-empty { color: #6b6357; font-size: .8rem; line-height: 1.8; }
+      .panel-actions { padding-top: 10px; text-align: center; }
+      .panel-actions .btn-sm { font-size: .72rem; padding: 6px 14px; border-color: rgba(27, 26, 23, .35); color: #1b1a17; }
+      .browse-grid {
+        margin-top: 4px; display: grid; grid-template-columns: repeat(2, 1fr);
+        gap: 6px; overflow-y: auto; padding-right: 4px; flex: 1;
+      }
+      :global(.browse-item) {
+        display: flex; flex-direction: column; gap: 2px; text-align: left;
+        padding: 7px 9px; background: rgba(255, 250, 240, .35);
+        border: 1px solid rgba(27, 26, 23, .18); color: #1b1a17;
+        font-family: inherit; cursor: pointer;
+      }
+      :global(.browse-item:hover) { border-color: #a63b2a; }
+      :global(.b-num) { font-size: .66rem; color: #8a6a3a; }
+      :global(.b-name) { font-size: .92rem; letter-spacing: .1em; }
+      :global(.b-sub) { font-size: .62rem; color: #6b6357; }
+      .result-image { font-size: .8rem; line-height: 1.85; color: #4a453d; margin: 2px 0 10px; }
+      .result-source { font-size: .68rem; color: #8a6b3a; letter-spacing: .12em; margin-top: 6px; }
+
+      @media (max-width: 640px) {
+        .ritual-progress { bottom: 76px; }
+        .corner-nav { bottom: 18px; left: 14px; }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         #poster, canvas#scene { transition: none; }
       }
@@ -165,13 +239,34 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
       <p id="resultHexes" class="result-sub"></p>
       <p id="resultMoving" class="result-sub"></p>
       <p id="resultJudgment" class="result-judgment"></p>
+      <p id="resultImage" class="result-image"></p>
       <p id="resultInterp" class="result-interp"></p>
+      <p id="resultSource" class="result-source"></p>
       <button id="againBtn" class="btn btn-sm" type="button">再 占 一 卦</button>
     </section>
+    <div id="ritualProgress" class="ritual-progress" aria-hidden="true"></div>
+    <nav class="corner-nav" aria-label="资料">
+      <button id="historyBtn" class="nav-btn" type="button">记录</button>
+      <button id="browseBtn" class="nav-btn" type="button">卦库</button>
+    </nav>
+    <aside id="historyPanel" class="panel" aria-label="占卜记录">
+      <header class="panel-head"><span>占卜记录</span><button id="closeHistory" class="panel-close" type="button" aria-label="关闭">×</button></header>
+      <ul id="historyList" class="history-list"></ul>
+      <p id="historyEmpty" class="panel-empty">还没有记录。掷满六爻后会自动存进这里。</p>
+      <div id="historyActions" class="panel-actions"><button id="clearHistory" class="btn-sm" type="button">清 除 全 部</button></div>
+    </aside>
+    <aside id="browsePanel" class="panel" aria-label="卦库">
+      <header class="panel-head"><span>卦库</span><button id="closeBrowse" class="panel-close" type="button" aria-label="关闭">×</button></header>
+      <input id="searchHex" class="panel-search" type="search" placeholder="搜索卦名 / 拼音 / 序号" />
+      <div id="browseGrid" class="browse-grid"></div>
+    </aside>
     <noscript><p style="position:fixed;inset:0;display:grid;place-content:center">请启用 JavaScript。</p></noscript>
     <script>
       performance.mark('html:ready')
       import { ambient } from '../lib/ambient'
+      import hexagrams from '../data/hexagrams.json'
+      import { bindPanels, saveRecord } from '../lib/archive'
+      import type { Hexagram } from '../lib/hexagram'
       const soundBtn = document.getElementById('soundBtn')
       const syncSound = () => {
         if (soundBtn) soundBtn.textContent = ambient.muted ? '声音 · 关' : '声音 · 开'
@@ -181,6 +276,22 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
         syncSound()
       })
       syncSound()
+
+      window.addEventListener('ritual:complete', (event) => {
+        const detail = (event as CustomEvent<{ values: number[] }>).detail
+        if (detail?.values?.length === 6) saveRecord({ t: Date.now(), values: detail.values })
+      })
+      bindPanels({ hexagrams: hexagrams as unknown as Hexagram[] })
+
+      const panelParam = new URLSearchParams(location.search).get('panel')
+      if (new URLSearchParams(location.search).get('seed') === '1') {
+        const now = Date.now()
+        saveRecord({ t: now - 3600_000 * 2, values: [6, 7, 8, 9, 7, 8] })
+        saveRecord({ t: now - 3600_000 * 26, values: [7, 7, 8, 8, 9, 9] })
+        saveRecord({ t: now - 3600_000 * 50, values: [8, 6, 7, 8, 9, 7] })
+      }
+      if (panelParam === 'browse') document.getElementById('browseBtn')?.click()
+      if (panelParam === 'history') document.getElementById('historyBtn')?.click()
 
       // 3D 不进首屏关键路径：海报先出，空闲时再拉 3D 模块
       const start = () => import('../scripts/scene').then((mod) => {

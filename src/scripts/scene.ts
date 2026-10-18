@@ -599,8 +599,23 @@ function start(canvas: HTMLCanvasElement): () => void {
     coins.push(coin)
   }
 
+  const censerMaterial = new THREE.MeshStandardMaterial({ color: 0x5a4a2e, metalness: 0.7, roughness: 0.45 })
+  const censer = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.09, 20), censerMaterial)
+  censer.position.set(-0.72, ALTAR_TOP + 0.045, 2.78)
+  scene.add(censer)
+  const censerRim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 24), censerMaterial)
+  censerRim.rotation.x = Math.PI / 2
+  censerRim.position.set(-0.72, ALTAR_TOP + 0.09, 2.78)
+  scene.add(censerRim)
+  const ember = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd4642a }))
+  ember.position.set(-0.72, ALTAR_TOP + 0.085, 2.78)
+  scene.add(ember)
+  const emberLight = new THREE.PointLight(0xff8a3d, 1.6, 1.1, 2)
+  emberLight.position.set(-0.72, ALTAR_TOP + 0.12, 2.78)
+  scene.add(emberLight)
+
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, ALTAR_TOP + 0.07, 2.35)
+  lineGroup.position.set(0, ALTAR_TOP + 0.05, 2.4)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -608,7 +623,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     lineSlots.length = 0
     for (let i = 0; i < 6; i++) {
       const slot = new THREE.Group()
-      slot.position.z = 0.24 - i * 0.11
+      slot.position.z = 0.23 - i * 0.092
       lineGroup.add(slot)
       lineSlots.push(slot)
     }
@@ -923,10 +938,10 @@ function start(canvas: HTMLCanvasElement): () => void {
     const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0x1b1a17 })
     const bars: THREE.Mesh[] = []
     if (yang) {
-      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.02, 0.07), material))
+      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.012, 0.04), material))
     } else {
       for (const dx of [-0.27, 0.27]) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.02, 0.07), material)
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.012, 0.04), material)
         bar.position.x = dx
         bars.push(bar)
       }

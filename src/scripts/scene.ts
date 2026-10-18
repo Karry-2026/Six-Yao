@@ -282,6 +282,7 @@ function makeBeyondTexture(): THREE.Texture {
 let disposeCurrent: (() => void) | null = null
 
 export function boot(): void {
+  performance.mark('scene:boot')
   const canvas = document.getElementById('scene') as HTMLCanvasElement | null
   if (!canvas) return
 
@@ -329,8 +330,8 @@ function start(canvas: HTMLCanvasElement): () => void {
   scene.fog = new THREE.FogExp2(new THREE.Color(theme.fog), theme.fogDensity)
 
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 160)
-  const FINAL_POS = new THREE.Vector3(0, 1.9, 5.6)
-  const LOOK_AT = new THREE.Vector3(0, 1.08, 1.35)
+  const FINAL_POS = new THREE.Vector3(0, 1.95, 5.75)
+  const LOOK_AT = new THREE.Vector3(0, 1.05, 1.5)
   camera.position.copy(FINAL_POS)
   camera.lookAt(LOOK_AT)
 
@@ -550,6 +551,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     altarMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 2, 1.4)
     altarMaterial.color.set(theme.daylight ? '#b9ae98' : '#8a8478')
     altarMaterial.needsUpdate = true
+    performance.mark('textures:assigned')
   }, 0)
 
   // ---------- 石阶 ----------
@@ -578,14 +580,14 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 石桌 · 铜钱 · 卦爻 ----------
   const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.72, 1.55), altarMaterial)
-  altar.position.set(0, 0.36, 2.5)
+  const altar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 1.3), altarMaterial)
+  altar.position.set(0, 0.35, 2.45)
   scene.add(altar)
 
   const tableLight = new THREE.PointLight(0xffd9a0, theme.daylight ? 3.2 : 6.5, 5.5, 2)
   tableLight.position.set(0, 1.55, 2.45)
   scene.add(tableLight)
-  const ALTAR_TOP = 0.72
+  const ALTAR_TOP = 0.7
 
   const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
   const coins: THREE.Mesh[] = []
@@ -598,7 +600,7 @@ function start(canvas: HTMLCanvasElement): () => void {
   }
 
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, ALTAR_TOP + 0.012, 2.5)
+  lineGroup.position.set(0, ALTAR_TOP + 0.02, 2.32)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -606,7 +608,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     lineSlots.length = 0
     for (let i = 0; i < 6; i++) {
       const slot = new THREE.Group()
-      slot.position.z = 0.36 - i * 0.144
+      slot.position.z = 0.2 - i * 0.11
       lineGroup.add(slot)
       lineSlots.push(slot)
     }
@@ -760,6 +762,7 @@ function start(canvas: HTMLCanvasElement): () => void {
         texture.mapping = THREE.EquirectangularReflectionMapping
         scene.environment = pmrem.fromEquirectangular(texture).texture
         scene.environmentIntensity = theme.env
+        performance.mark('env:loaded')
         texture.dispose()
       })
       .catch((error) => console.warn('[six-yao] 环境贴图加载失败，使用灯光兜底', error))
@@ -888,7 +891,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       const p = Math.min((performance.now() - coinAnim.start) / 900, 1)
       const e = 1 - Math.pow(1 - p, 3)
       coins.forEach((coin, i) => {
-        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.25, ALTAR_TOP + 0.012, e), 2.5)
+        coin.position.set(-0.36 + i * 0.36, THREE.MathUtils.lerp(ALTAR_TOP + 1.25, ALTAR_TOP + 0.012, e), 2.9)
         coin.rotation.x = Math.PI / 2
         coin.rotation.z = p * 14 + i * 1.7
       })
@@ -905,7 +908,10 @@ function start(canvas: HTMLCanvasElement): () => void {
     if (composer) composer.render()
     else renderer.render(scene, camera)
 
-    if (!document.body.classList.contains('ready')) document.body.classList.add('ready')
+    if (!document.body.classList.contains('ready')) {
+      document.body.classList.add('ready')
+      performance.mark('scene:first-frame')
+    }
   }
 
   // ---------- 起卦流程 ----------
@@ -915,13 +921,13 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0xe9e4d8, transparent: true, opacity: 0 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0x1b1a17 })
     const bars: THREE.Mesh[] = []
     if (yang) {
-      bars.push(new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.012, 0.05), material))
+      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.014, 0.06), material))
     } else {
-      for (const dx of [-0.32, 0.32]) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.012, 0.05), material)
+      for (const dx of [-0.27, 0.27]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.014, 0.06), material)
         bar.position.x = dx
         bars.push(bar)
       }
@@ -930,8 +936,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     const t0 = performance.now()
     const step = () => {
       const p = Math.min((performance.now() - t0) / 420, 1)
-      material.opacity = p
-      bars.forEach((bar) => { bar.scale.x = 0.6 + 0.4 * p })
+      bars.forEach((bar) => { bar.scale.x = 0.82 + 0.18 * p })
       if (p < 1) requestAnimationFrame(step)
     }
     step()
@@ -951,7 +956,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       coinAnim.active = true
       coins.forEach((coin, i) => {
         coin.visible = true
-        coin.position.set(-0.42 + i * 0.42, ALTAR_TOP + 1.25, 2.5)
+        coin.position.set(-0.36 + i * 0.36, ALTAR_TOP + 1.25, 2.9)
       })
       window.setTimeout(() => resolve(faces), 950)
     })
@@ -992,6 +997,8 @@ function start(canvas: HTMLCanvasElement): () => void {
     const interpEl = document.getElementById('resultInterp')
     if (numberEl) numberEl.textContent = String(reading.primaryHex.number)
     if (nameEl) nameEl.textContent = reading.primaryHex.name
+    const sealEl = document.getElementById('resultSeal')
+    if (sealEl) sealEl.textContent = reading.primaryHex.name.slice(-1)
     if (pinyinEl) pinyinEl.textContent = reading.primaryHex.pinyin
     if (judgmentEl) judgmentEl.textContent = reading.primaryHex.judgment
     if (interpEl) interpEl.textContent = reading.primaryHex.interpretation

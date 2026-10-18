@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { read, type Yao } from '../lib/hexagram'
 import { ambient } from '../lib/ambient'
+import { showReading, closeReading } from '../lib/reading-view'
 
 type ThemeId = 'clear' | 'rain' | 'dusk' | 'snow'
 
@@ -1185,99 +1186,90 @@ function start(canvas: HTMLCanvasElement): () => void {
         coin.visible = true
         coin.position.set(-0.36 + i * 0.36, ALTAR_TOP + 1.25, 2.9)
       })
-      window.setTimeout(() => resolve(faces), 950)
+      window.setTimeout(() => resolve(faces), 900)
     })
 
-  let ritualBusy = false
-  const startRitual = async () => {
-    if (ritualBusy) return
-    ritualBusy = true
+  const progressEl = document.getElementById('ritualProgress')
+  const ritualState = { active: false, index: 0, values: [] as Yao[], busy: false }
+  const ordinal = ['一', '二', '三', '四', '五', '六']
+
+  const updateRitualUI = () => {
+    if (ritualBtn) {
+      if (!ritualState.active) ritualBtn.textContent = '抽 取 一 卦'
+      else if (ritualState.index >= 6) ritualBtn.textContent = '再 占 一 卦'
+      else ritualBtn.textContent = `第 ${ordinal[ritualState.index]} 爻 · 掷 币`
+    }
+    if (progressEl) {
+      progressEl.textContent = ritualState.active
+        ? Array.from({ length: 6 }, (_, i) => (i < ritualState.index ? '●' : '○')).join(' ')
+        : ''
+    }
+  }
+
+  const finishRitual = () => {
+    const reading = read(ritualState.values)
+    showReading(reading)
+    ambient.bell('end')
+    ritualState.active = false
+    ritualState.busy = false
+    updateRitualUI()
+    window.dispatchEvent(new CustomEvent('ritual:complete', { detail: { values: [...ritualState.values] } }))
+  }
+
+  const tossOne = async (forced?: boolean[]) => {
+    if (!ritualState.active || ritualState.busy) return
+    ritualState.busy = true
+    const faces = await tossRound(forced)
+    const value = (6 + faces.filter(Boolean).length) as Yao
+    ritualState.values.push(value)
+    revealLine(ritualState.index, value === 7 || value === 9, value === 6 || value === 9)
+    ritualState.index++
+    updateRitualUI()
+    if (ritualState.index >= 6) finishRitual()
+    else window.setTimeout(() => { ritualState.busy = false }, 600)
+  }
+
+  const beginRitual = () => {
     buildSlots()
     coins.forEach((coin) => { coin.visible = false })
-    resultCard?.classList.remove('open')
-    if (ritualBtn) ritualBtn.style.display = 'none'
-
+    closeReading()
+    ritualState.active = true
+    ritualState.index = 0
+    ritualState.values = []
+    ritualState.busy = false
     ambient.enable()
     ambient.bell('start')
-
-    const forcedRaw = new URLSearchParams(location.search).get('values')
-    const forcedValues = forcedRaw
-      ? forcedRaw.split(',').map((v) => Number(v.trim())).filter((v) => v >= 6 && v <= 9)
-      : []
-    const useForced = forcedValues.length === 6
-
-    const values: Yao[] = []
-    for (let i = 0; i < 6; i++) {
-      const faces = await tossRound(useForced ? facesForValue(forcedValues[i]) : undefined)
-      const heads = faces.filter(Boolean).length
-      const value = (6 + heads) as Yao
-      values.push(value)
-      revealLine(i, value === 7 || value === 9, value === 6 || value === 9)
-      await sleep(560)
-    }
-
-
-    const reading = read(values)
-    const numberEl = document.getElementById('resultNumber')
-    const nameEl = document.getElementById('resultName')
-    const pinyinEl = document.getElementById('resultPinyin')
-    const judgmentEl = document.getElementById('resultJudgment')
-    const interpEl = document.getElementById('resultInterp')
-    if (numberEl) numberEl.textContent = String(reading.primaryHex.number)
-    if (nameEl) nameEl.textContent = reading.primaryHex.name
-    const sealEl = document.getElementById('resultSeal')
-    if (sealEl) sealEl.textContent = reading.primaryHex.name.slice(-1)
-    if (pinyinEl) pinyinEl.textContent = reading.primaryHex.pinyin
-    if (judgmentEl) judgmentEl.textContent = reading.primaryHex.judgment
-    if (interpEl) interpEl.textContent = reading.primaryHex.interpretation
-
-    const positions = ['初', '二', '三', '四', '五', '上']
-    const yaoLabel = (index: number, yang: boolean) => {
-      if (index === 0) return yang ? '初九' : '初六'
-      if (index === 5) return yang ? '上九' : '上六'
-      return (yang ? '九' : '六') + positions[index]
-    }
-    const glyphEl = document.getElementById('resultGlyph')
-    if (glyphEl) {
-      glyphEl.innerHTML = ''
-      for (let i = 5; i >= 0; i--) {
-        const row = document.createElement('div')
-        row.className = 'glyph-row' + (reading.moving.includes(i) ? ' moving' : '')
-        const bars = reading.primary[i] === 1 ? 1 : 2
-        for (let b = 0; b < bars; b++) {
-          const bar = document.createElement('div')
-          bar.className = 'glyph-bar'
-          row.appendChild(bar)
-        }
-        glyphEl.appendChild(row)
-      }
-    }
-
-    const hexesEl = document.getElementById('resultHexes')
-    const movingEl = document.getElementById('resultMoving')
-    if (hexesEl) {
-      hexesEl.textContent = `本卦 ${reading.primaryHex.name} · 互卦 ${reading.mutualHex.name}` +
-        (reading.changedHex ? ` · 变卦 ${reading.changedHex.name}` : '')
-    }
-    if (movingEl) {
-      movingEl.textContent = reading.moving.length
-        ? `动爻：${reading.moving.map((index) => yaoLabel(index, reading.primary[index] === 1)).join('、')}`
-        : '静卦 · 无动爻'
-    }
-
-    ambient.bell('end')
-    resultCard?.classList.add('open')
-    ritualBusy = false
+    updateRitualUI()
   }
 
-  ritualBtn?.addEventListener('click', () => { void startRitual() })
-  document.getElementById('againBtn')?.addEventListener('click', () => { void startRitual() })
+  ritualBtn?.addEventListener('click', () => {
+    if (!ritualState.active) beginRitual()
+    void tossOne()
+  })
+  document.getElementById('againBtn')?.addEventListener('click', () => {
+    closeReading()
+    beginRitual()
+  })
 
+  // QA：?ritual=1 自动掷满六次；?values=... 固定结果
   if (new URLSearchParams(location.search).get('ritual') === '1') {
-    window.setTimeout(() => { void startRitual() }, 1200)
+    window.setTimeout(async () => {
+      beginRitual()
+      const forcedRaw = new URLSearchParams(location.search).get('values')
+      const forcedValues = forcedRaw
+        ? forcedRaw.split(',').map((v) => Number(v.trim())).filter((v) => v >= 6 && v <= 9)
+        : []
+      for (let i = 0; i < 6; i++) {
+        const forced = forcedValues.length === 6 ? facesForValue(forcedValues[i]) : undefined
+        ritualState.busy = false
+        await tossOne(forced)
+        await sleep(1300)
+      }
+    }, 1200)
   }
 
-  document.addEventListener('visibilitychange', () => {
+  
+document.addEventListener('visibilitychange', () => {
     paused = document.hidden
   })
 

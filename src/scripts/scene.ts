@@ -282,6 +282,7 @@ function makeBeyondTexture(): THREE.Texture {
 let disposeCurrent: (() => void) | null = null
 
 export function boot(): void {
+  performance.mark('scene:boot')
   const canvas = document.getElementById('scene') as HTMLCanvasElement | null
   if (!canvas) return
 
@@ -321,17 +322,16 @@ function start(canvas: HTMLCanvasElement): () => void {
   renderer.toneMappingExposure = theme.exposure
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  renderer.setPixelRatio(
-    Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15),
-  )
+  const targetPixelRatio = Math.min(window.devicePixelRatio || 1, tier === 'high' ? 1.75 : tier === 'medium' ? 1.5 : 1.15)
+  renderer.setPixelRatio(Math.min(targetPixelRatio, 1))
 
   const scene = new THREE.Scene()
   scene.background = makeSkyTexture(theme.sky)
   scene.fog = new THREE.FogExp2(new THREE.Color(theme.fog), theme.fogDensity)
 
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 160)
-  const FINAL_POS = new THREE.Vector3(0, 1.62, 6.2)
-  const LOOK_AT = new THREE.Vector3(0, 1.55, -3.4)
+  const FINAL_POS = new THREE.Vector3(0, 1.95, 5.75)
+  const LOOK_AT = new THREE.Vector3(0, 1.05, 1.5)
   camera.position.copy(FINAL_POS)
   camera.lookAt(LOOK_AT)
 
@@ -544,6 +544,16 @@ function start(canvas: HTMLCanvasElement): () => void {
   pathMaterial.color.set(theme.daylight ? '#e2dccd' : '#7a7a74')
   pathMaterial.needsUpdate = true
 
+  // 石桌在贴图段之后才声明，延后一拍再贴材质，避免 TDZ
+  window.setTimeout(() => {
+    altarMaterial.map = loadMap('stone_floor/stone_floor_diff_1k.webp', true, 2, 1.4)
+    altarMaterial.normalMap = loadMap('stone_floor/stone_floor_nor_gl_1k.webp', false, 2, 1.4)
+    altarMaterial.roughnessMap = loadMap('stone_floor/stone_floor_rough_1k.webp', false, 2, 1.4)
+    altarMaterial.color.set(theme.daylight ? '#b9ae98' : '#8a8478')
+    altarMaterial.needsUpdate = true
+    performance.mark('textures:assigned')
+  }, 0)
+
   // ---------- 石阶 ----------
   const stepMaterial = new THREE.MeshStandardMaterial({ color: theme.path, roughness: 0.9 })
   for (let i = 0; i < 2; i++) {
@@ -570,24 +580,42 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   // ---------- 石桌 · 铜钱 · 卦爻 ----------
   const altarMaterial = new THREE.MeshStandardMaterial({ color: theme.daylight ? '#8b8170' : '#3c372f', roughness: 0.92 })
-  const altar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 0.95), altarMaterial)
-  altar.position.set(0, 0.3, 3.35)
+  const altar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 1.3), altarMaterial)
+  altar.position.set(0, 0.35, 2.45)
   scene.add(altar)
-  const ALTAR_TOP = 0.6
+
+  const tableLight = new THREE.PointLight(0xffd9a0, theme.daylight ? 3.2 : 6.5, 5.5, 2)
+  tableLight.position.set(0, 1.55, 2.45)
+  scene.add(tableLight)
+  const ALTAR_TOP = 0.7
 
   const coinBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.8, roughness: 0.35, emissive: 0x1a1206 })
   const coins: THREE.Mesh[] = []
   for (let i = 0; i < 3; i++) {
-    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.022, 24), coinBaseMaterial.clone())
-    coin.rotation.x = Math.PI / 2
+    const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.028, 24), coinBaseMaterial.clone())
+    coin.rotation.y = Math.random() * Math.PI
     coin.visible = false
     scene.add(coin)
     coins.push(coin)
   }
 
+  const censerMaterial = new THREE.MeshStandardMaterial({ color: 0x5a4a2e, metalness: 0.7, roughness: 0.45 })
+  const censer = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.09, 20), censerMaterial)
+  censer.position.set(-0.72, ALTAR_TOP + 0.045, 2.78)
+  scene.add(censer)
+  const censerRim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 24), censerMaterial)
+  censerRim.rotation.x = Math.PI / 2
+  censerRim.position.set(-0.72, ALTAR_TOP + 0.09, 2.78)
+  scene.add(censerRim)
+  const ember = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), new THREE.MeshBasicMaterial({ color: 0xd4642a }))
+  ember.position.set(-0.72, ALTAR_TOP + 0.085, 2.78)
+  scene.add(ember)
+  const emberLight = new THREE.PointLight(0xff8a3d, 1.6, 1.1, 2)
+  emberLight.position.set(-0.72, ALTAR_TOP + 0.12, 2.78)
+  scene.add(emberLight)
+
   const lineGroup = new THREE.Group()
-  lineGroup.position.set(0, 1.62, 1.9)
-  lineGroup.scale.setScalar(0.78)
+  lineGroup.position.set(0, ALTAR_TOP + 0.05, 2.4)
   scene.add(lineGroup)
   const lineSlots: THREE.Group[] = []
   const buildSlots = () => {
@@ -595,7 +623,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     lineSlots.length = 0
     for (let i = 0; i < 6; i++) {
       const slot = new THREE.Group()
-      slot.position.y = -0.38 + i * 0.15
+      slot.position.z = 0.23 - i * 0.092
       lineGroup.add(slot)
       lineSlots.push(slot)
     }
@@ -743,16 +771,18 @@ function start(canvas: HTMLCanvasElement): () => void {
   // ---------- 环境贴图（CC0 HDRI，仅中高档异步加载） ----------
   if (tier !== 'low' && theme.env > 0) {
     const pmrem = new THREE.PMREMGenerator(renderer)
-    new RGBELoader()
+    const loadEnv = () => new RGBELoader()
       .loadAsync(`${base}env/courtyard_1k.hdr`)
       .then((texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping
         scene.environment = pmrem.fromEquirectangular(texture).texture
         scene.environmentIntensity = theme.env
+        performance.mark('env:loaded')
         texture.dispose()
       })
       .catch((error) => console.warn('[six-yao] 环境贴图加载失败，使用灯光兜底', error))
       .finally(() => pmrem.dispose())
+    window.setTimeout(loadEnv, 1600)
   }
 
   // ---------- 后处理 ----------
@@ -774,9 +804,9 @@ function start(canvas: HTMLCanvasElement): () => void {
   })()
   const introDuration = 4
   const introCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(1.1, 2.0, 13.4),
-    new THREE.Vector3(0.6, 1.85, 10.4),
-    new THREE.Vector3(0.2, 1.7, 7.8),
+    new THREE.Vector3(1.3, 2.7, 12.2),
+    new THREE.Vector3(0.7, 2.45, 9.2),
+    new THREE.Vector3(0.3, 2.15, 7.0),
     FINAL_POS,
   ])
   const skipIntro = new URLSearchParams(location.search).get('intro') === '0'
@@ -876,9 +906,8 @@ function start(canvas: HTMLCanvasElement): () => void {
       const p = Math.min((performance.now() - coinAnim.start) / 900, 1)
       const e = 1 - Math.pow(1 - p, 3)
       coins.forEach((coin, i) => {
-        coin.position.set(-0.34 + i * 0.34, THREE.MathUtils.lerp(ALTAR_TOP + 1.35, ALTAR_TOP + 0.012, e), 3.35)
-        coin.rotation.x = Math.PI / 2
-        coin.rotation.z = p * 14 + i * 1.7
+        coin.position.set(-0.36 + i * 0.36, THREE.MathUtils.lerp(ALTAR_TOP + 1.25, ALTAR_TOP + 0.035, e), 2.9)
+        coin.rotation.y = p * 6 + i * 1.7
       })
       if (p >= 1) {
         coinAnim.active = false
@@ -893,7 +922,10 @@ function start(canvas: HTMLCanvasElement): () => void {
     if (composer) composer.render()
     else renderer.render(scene, camera)
 
-    if (!document.body.classList.contains('ready')) document.body.classList.add('ready')
+    if (!document.body.classList.contains('ready')) {
+      document.body.classList.add('ready')
+      performance.mark('scene:first-frame')
+    }
   }
 
   // ---------- 起卦流程 ----------
@@ -903,13 +935,13 @@ function start(canvas: HTMLCanvasElement): () => void {
 
   const revealLine = (index: number, yang: boolean, moving: boolean) => {
     const slot = lineSlots[index]
-    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xe0b866 : 0xe8dfc8, transparent: true, opacity: 0 })
+    const material = new THREE.MeshBasicMaterial({ color: moving ? 0xa63b2a : 0x1b1a17 })
     const bars: THREE.Mesh[] = []
     if (yang) {
-      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.048, 0.02), material))
+      bars.push(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.012, 0.04), material))
     } else {
-      for (const dx of [-0.24, 0.24]) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.048, 0.02), material)
+      for (const dx of [-0.27, 0.27]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.012, 0.04), material)
         bar.position.x = dx
         bars.push(bar)
       }
@@ -918,8 +950,7 @@ function start(canvas: HTMLCanvasElement): () => void {
     const t0 = performance.now()
     const step = () => {
       const p = Math.min((performance.now() - t0) / 420, 1)
-      material.opacity = p
-      bars.forEach((bar) => { bar.scale.x = 0.6 + 0.4 * p })
+      bars.forEach((bar) => { bar.scale.x = 0.82 + 0.18 * p })
       if (p < 1) requestAnimationFrame(step)
     }
     step()
@@ -939,7 +970,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       coinAnim.active = true
       coins.forEach((coin, i) => {
         coin.visible = true
-        coin.position.set(-0.34 + i * 0.34, ALTAR_TOP + 1.35, 3.35)
+        coin.position.set(-0.36 + i * 0.36, ALTAR_TOP + 1.25, 2.9)
       })
       window.setTimeout(() => resolve(faces), 950)
     })
@@ -972,6 +1003,7 @@ function start(canvas: HTMLCanvasElement): () => void {
       await sleep(560)
     }
 
+
     const reading = read(values)
     const numberEl = document.getElementById('resultNumber')
     const nameEl = document.getElementById('resultName')
@@ -980,6 +1012,8 @@ function start(canvas: HTMLCanvasElement): () => void {
     const interpEl = document.getElementById('resultInterp')
     if (numberEl) numberEl.textContent = String(reading.primaryHex.number)
     if (nameEl) nameEl.textContent = reading.primaryHex.name
+    const sealEl = document.getElementById('resultSeal')
+    if (sealEl) sealEl.textContent = reading.primaryHex.name.slice(-1)
     if (pinyinEl) pinyinEl.textContent = reading.primaryHex.pinyin
     if (judgmentEl) judgmentEl.textContent = reading.primaryHex.judgment
     if (interpEl) interpEl.textContent = reading.primaryHex.interpretation
@@ -1035,6 +1069,11 @@ function start(canvas: HTMLCanvasElement): () => void {
   })
 
   frame()
+
+  window.setTimeout(() => {
+    renderer.setPixelRatio(targetPixelRatio)
+    resize()
+  }, 1500)
 
   return () => {
     cancelAnimationFrame(raf)

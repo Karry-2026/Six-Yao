@@ -4,6 +4,8 @@
 
 **在线体验：<https://karry-2026.github.io/Six-Yao/>**
 
+> **⚠️ v3 重构进行中**：已定案放弃 3D、改为 2D 水墨风，并补全真六爻装卦体系（纳甲/世应/六亲/六兽/旬空）。方向与进展见 [开发计划](docs/ROADMAP.md) 与 [决策记录](docs/adr/)；下文描述的是当前线上版本 v2.5.0。
+
 ![庭院与起卦](docs/preview.png)
 
 ## 功能
@@ -52,14 +54,14 @@ scripts/verify-hexagrams.mjs
 
 ## 文档
 
-- [视觉与交互规范](docs/ART-DIRECTION.md)
+- [开发计划（v3）](docs/ROADMAP.md)
+- [决策记录 ADR](docs/adr/)（2D 转向、装卦体系）
 - [产品需求](docs/PRD.md)
 - [技术方案](docs/ARCHITECTURE.md)
-- [视觉与 3D 设计](docs/DESIGN.md)
-- [开发计划](docs/ROADMAP.md)
 - [实现说明](docs/IMPLEMENTATION.md)
 - [素材清单与许可](docs/ASSETS.md)
 - [托管容量预算](docs/HOSTING.md)
+- v2 存档：[视觉与交互规范](docs/archive/ART-DIRECTION.md) · [视觉与 3D 设计](docs/archive/DESIGN.md)
 
 ## 许可
 

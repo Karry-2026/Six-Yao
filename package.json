@@ -12,12 +12,10 @@
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
-    "astro": "^5.0.0",
-    "three": "^0.170.0"
+    "astro": "^5.0.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "@types/three": "^0.170.0",
     "typescript": "^5.9.3"
   }
 }

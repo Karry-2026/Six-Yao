@@ -4,9 +4,20 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 渲染层重写：放弃 three.js 3D 庭院，改为 Canvas2D/SVG 程序化水墨——宣纸、远山、木案、香炉、落款朱印，四时氛围（晴昼/烟雨/暮夜/雪夜）保留（[ADR-0001](docs/adr/0001-replace-3d-with-2d-ink.md)）
+- 起卦流程独立为 `ritual.ts`（DOM/SVG 卦纸），无 Canvas 设备可完整起卦；海报纸面样式随主题明暗联动
+- 工程化：CI 门禁（verify + check + build）、CHANGELOG、CONTRIBUTING、PR/issue 模板（PR #13）
+
+### Removed
+
+- three.js 依赖与全部 3D 资产（HDRI/PBR 贴图），仓库瘦身约 12MB，构建产物 6.1MB → 0.7MB
+- 开场推进镜头（3D 专属）
+
 ### 计划
 
-- v3 重构启动：放弃 3D 场景、改为 2D 水墨风（[ADR-0001](docs/adr/0001-replace-3d-with-2d-ink.md)）；补全真六爻装卦体系（[ADR-0002](docs/adr/0002-full-najia-domain.md)）。计划与进展见 [ROADMAP](docs/ROADMAP.md)。
+- v3 下一站：补全真六爻装卦体系（纳甲/世应/六亲/六兽/旬空，[ADR-0002](docs/adr/0002-full-najia-domain.md)）。进展见 [ROADMAP](docs/ROADMAP.md)。
 
 ## [2.5.0] - 2026-10-18
 

@@ -210,6 +210,7 @@ export function showReading(reading: Reading, source = '') {
   renderInstallTable(resolveInstalled(reading), reading.moving)
   setText('resultSource', source)
   renderGlyph(reading.primary, reading.moving)
+  document.body.classList.add('card-open')
   document.getElementById('result')?.classList.add('open')
 }
 
@@ -229,6 +230,7 @@ export function showHexDetail(hex: Hexagram) {
   renderInstallTable(installLines(hex.lines), [])
   setText('resultSource', '卦库')
   renderGlyph(hex.lines)
+  document.body.classList.add('card-open')
   document.getElementById('result')?.classList.add('open')
 }
 
@@ -236,6 +238,7 @@ export function closeReading() {
   const card = document.getElementById('result')
   if (!card?.classList.contains('open')) return
   card.classList.remove('open')
+  document.body.classList.remove('card-open')
   currentHexParam = null
   clearHexParam()
 }

@@ -16,9 +16,14 @@ export const ANCHORS = {
   boardY: 0.43,
 } as const
 
-/** 案桌纵向锚点：竖屏（高明显大于宽）时整组上移，给底部按钮与桌影留出一档间距 */
+/** 案桌纵向锚点：竖屏（高明显大于宽）时桌落在下三分位，与底部按钮形成前中后景节奏 */
 export function tableYFrac({ w, h }: SceneDims): number {
-  return h > w * 1.15 ? 0.63 : ANCHORS.tableY
+  return h > w * 1.15 ? 0.72 : ANCHORS.tableY
+}
+
+/** 地平线锚点：竖屏山整体上移，把中部留给地面与案桌 */
+export function horizonFrac({ w, h }: SceneDims): number {
+  return h > w * 1.15 ? 0.34 : ANCHORS.horizon
 }
 
 /** 稳定伪随机：同一主题/尺寸下重绘不变 */
@@ -74,12 +79,13 @@ function paintPaper(ctx: CanvasRenderingContext2D, { w, h }: SceneDims, theme: T
   }
 }
 
-/** 远山：三层淡墨，边沿晕染 */
+/** 远山：三层淡墨，边沿晕染；山脚贴着地平线随画幅走 */
 function paintMountains(ctx: CanvasRenderingContext2D, { w, h }: SceneDims, theme: ThemeConfig): void {
+  const horizon = horizonFrac({ w, h })
   const layers = [
-    { base: 0.4, amp: 0.1, alpha: 0.28, seed: 31 },
-    { base: 0.415, amp: 0.075, alpha: 0.42, seed: 77 },
-    { base: 0.432, amp: 0.05, alpha: 0.58, seed: 123 },
+    { base: horizon - 0.02, amp: 0.1, alpha: 0.28, seed: 31 },
+    { base: horizon - 0.005, amp: 0.075, alpha: 0.42, seed: 77 },
+    { base: horizon + 0.012, amp: 0.05, alpha: 0.58, seed: 123 },
   ]
   for (const layer of layers) {
     const baseY = h * layer.base
@@ -138,7 +144,7 @@ function paintMoon(ctx: CanvasRenderingContext2D, { w, h }: SceneDims): void {
 
 /** 地：纸面暗部渐变与几道皴 */
 function paintGround(ctx: CanvasRenderingContext2D, { w, h }: SceneDims, theme: ThemeConfig): void {
-  const y0 = h * ANCHORS.horizon
+  const y0 = h * horizonFrac({ w, h })
   const g = ctx.createLinearGradient(0, y0, 0, h)
   g.addColorStop(0, withAlpha(theme.paperDeep, 0.4))
   g.addColorStop(0.5, withAlpha(theme.paperDeep, 0.9))

@@ -131,7 +131,7 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}/fon
       /* 卦纸：六爻落在画上一张小签纸 */
       #board {
         position: fixed; left: 50%; top: 43%; z-index: 2;
-        width: clamp(96px, 16vh, 150px); height: auto;
+        width: clamp(88px, 30vw, 150px); height: auto;
         transform: translate(-50%, -50%) rotate(-1.4deg);
         opacity: 0; pointer-events: none;
         transition: opacity .7s ease .15s;
@@ -235,12 +235,12 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}/fon
         border-bottom: 1px solid rgba(27, 26, 23, .14);
       }
       #resultInstall :global(tr:last-child td) { border-bottom: none; }
-      /* 列宽：爻位 | 六亲·干支 | 六兽 | 世应 | 旬空 */
+      /* 列宽：爻位 | 六亲·干支 | 六兽 | 世应 | 旬空（后两列内容稀疏，收窄让给干支列） */
       #resultInstall :global(th:nth-child(1)) { width: 12%; }
-      #resultInstall :global(th:nth-child(2)) { width: 34%; }
-      #resultInstall :global(th:nth-child(3)) { width: 20%; }
-      #resultInstall :global(th:nth-child(4)) { width: 14%; }
-      #resultInstall :global(th:nth-child(5)) { width: 20%; }
+      #resultInstall :global(th:nth-child(2)) { width: 38%; }
+      #resultInstall :global(th:nth-child(3)) { width: 22%; }
+      #resultInstall :global(th:nth-child(4)) { width: 10%; }
+      #resultInstall :global(th:nth-child(5)) { width: 18%; }
       /* 世应与旬空的小字标记 */
       #resultInstall :global(.inst-mark) {
         font-size: .64rem; letter-spacing: .06em; color: #6b6357;
@@ -260,7 +260,12 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}/fon
       @media (max-width: 640px) {
         .result-card { right: 16px; left: 16px; top: auto; bottom: 16px; transform: none; width: auto; max-height: 62vh; padding: 18px; }
         .ritual-btn { bottom: 64px; }
-        #board { top: 40%; }
+        #board { top: 30%; }
+        /* 结果卡打开时（手机端为底部大卡），纸条/按钮/导航整体让位，避免叠压 */
+        body.card-open #board,
+        body.card-open .ritual-btn,
+        body.card-open .ritual-progress,
+        body.card-open .corner-nav { opacity: 0; pointer-events: none; }
       }
 
       .ritual-progress {

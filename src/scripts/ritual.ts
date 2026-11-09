@@ -1,9 +1,10 @@
 // 起卦流程：掷币状态机 + 卦纸（SVG）渲染
 // 独立于渲染后端：无 Canvas 也能完整走通（body.no-canvas 降级路径）。
 
-import { read, type Yao } from '../lib/hexagram'
-import { showReading, closeReading } from '../lib/reading-view'
+import { read, isYang, isMoving, type Yao } from '../lib/hexagram'
+import { showReading, closeReading, writeHexParam } from '../lib/reading-view'
 import { ambient } from '../lib/ambient'
+import { music } from '../lib/music'
 
 const TOSS_MS = 850
 const ORDINAL = ['一', '二', '三', '四', '五', '六']
@@ -43,6 +44,7 @@ let boardRows: SVGGElement[] = []
 function revealLine(index: number, yang: boolean, moving: boolean): void {
   const row = boardRows[5 - index]
   if (!row) return
+  document.getElementById('board')?.classList.add('writing')
   row.innerHTML = ''
   const bar = (x: number, width: number) => {
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
@@ -83,6 +85,7 @@ function updateRitualUI(): void {
 
 function beginRitual(): void {
   boardRows = buildBoard()
+  document.getElementById('board')?.classList.remove('writing')
   closeReading()
   window.dispatchEvent(new CustomEvent('sy:reset'))
   ritualState.active = true
@@ -91,6 +94,8 @@ function beginRitual(): void {
   ritualState.busy = false
   ambient.enable()
   ambient.bell('start')
+  // 「音乐」开关在开位（含刷新后回来）时，在用户手势内补启播放；静音时是 no-op
+  music.start()
   updateRitualUI()
 }
 
@@ -115,11 +120,29 @@ async function tossOne(forced?: boolean[]): Promise<void> {
 function finishRitual(): void {
   const reading = read(ritualState.values)
   showReading(reading)
+  writeHexParam(reading.values) // 掷毕：六位爻值写入地址栏（replaceState，可复制分享）
   ambient.bell('end')
   ritualState.active = false
   ritualState.busy = false
   updateRitualUI()
   window.dispatchEvent(new CustomEvent('ritual:complete', { detail: { values: [...ritualState.values] } }))
+}
+
+/** ?hex=六位爻值 → Yao[]（自下而上）；每位须为 6-9，否则返回 null */
+function parseHexParam(raw: string | null): Yao[] | null {
+  if (!raw || !/^[6-9]{6}$/.test(raw)) return null
+  return Array.from(raw, (ch) => Number(ch) as Yao)
+}
+
+/** 分享链接落地：六爻一次性亮出（跳过逐次掷币动画），直接开卡。
+ *  只做展示——不派发 ritual:complete，因此不写入占卜记录；地址栏保持原样。 */
+function showSharedReading(values: Yao[]): void {
+  ritualState.active = false
+  ritualState.busy = false
+  ritualState.index = 6
+  ritualState.values = [...values]
+  for (let i = 0; i < 6; i++) revealLine(i, isYang(values[i]), isMoving(values[i]))
+  showReading(read(values), '分享链接')
 }
 
 export function bootRitual(): void {
@@ -137,6 +160,13 @@ export function bootRitual(): void {
   // 交互入口就绪：海报退场，卦纸与按钮可用
   document.body.classList.add('ready')
   updateRitualUI()
+
+  // 分享链接：?hex=六位爻值 → 跳过逐次动画直接亮卦开卡（优先于 QA 自动掷币）
+  const sharedValues = parseHexParam(new URLSearchParams(location.search).get('hex'))
+  if (sharedValues) {
+    showSharedReading(sharedValues)
+    return
+  }
 
   // QA：?ritual=1 自动掷满六爻；?values=7,8,... 固定结果
   if (new URLSearchParams(location.search).get('ritual') === '1') {

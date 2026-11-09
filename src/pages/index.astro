@@ -2,7 +2,7 @@
 import '@fontsource/cormorant-garamond/400.css'
 import '@fontsource/cormorant-garamond/600.css'
 const base = import.meta.env.BASE_URL
-const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}fonts/noto-serif-sc-subset.woff2') format('woff2');font-display:swap;}`
+const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}/fonts/noto-serif-sc-subset.woff2') format('woff2');font-display:swap;}`
 ---
 
 <!DOCTYPE html>
@@ -18,7 +18,7 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
     <meta name="theme-color" content="#ece5d3" />
     <link rel="icon" href={`${base}/favicon.svg`} />
     <style set:html={displayFont}></style>
-    <link rel="preload" href={`${base}fonts/noto-serif-sc-subset.woff2`} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={`${base}/fonts/noto-serif-sc-subset.woff2`} as="font" type="font/woff2" crossorigin />
     <script is:inline>
       // 早于首帧定明暗，避免海报闪色（与 ink/themes.ts 同一取法）
       (function () {
@@ -67,7 +67,7 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
         --ink: #d9d2c2;
         --dim: #8b93a0;
         --accent: #c8553d;
-        --slip: #232c3c;
+        --slip: #efe8d5;
         --chip-bg: rgba(27, 34, 48, 0.72);
         --chip-border: rgba(217, 210, 194, 0.3);
         --chip-text: #d9d2c2;
@@ -83,14 +83,13 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
         transition: background-color .9s ease, color .9s ease;
       }
 
-      /* 海报：2D 纸卷就绪前显示 */
+      /* 海报：2D 纸卷就绪前显示。素纸底色，无衬光；
+         z-index 高于角标/按钮（5）与抽屉（6），避免下层 UI 透出残影 */
       #poster {
-        position: fixed; inset: 0; z-index: 3;
+        position: fixed; inset: 0; z-index: 7;
         display: grid; place-content: center; justify-items: center;
         gap: 18px;
-        background:
-          radial-gradient(circle at 50% 30%, var(--poster-glow), transparent 46%),
-          linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%);
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%);
         transition: opacity .7s ease;
       }
       #poster h1, .result-card h2, .seal { font-family: 'Noto Serif SC', 'Songti SC', serif; }
@@ -141,20 +140,32 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
       body.ready #board { opacity: 1; }
       #board .slip {
         fill: var(--slip);
-        stroke: var(--ink);
-        stroke-opacity: .2;
+        stroke: #2a2620;
+        stroke-opacity: .25;
         stroke-width: 1;
       }
+      /* 纸条宣纸纹理与待机引导字（见 #board 内 .grain / .idle-mark） */
+      #board .grain { opacity: .45; }
+      #board .idle-mark {
+        font-family: 'Noto Serif SC', 'Songti SC', serif;
+        font-size: 12px;
+        fill: #2c2925;
+        opacity: .45;
+        text-anchor: middle;
+        transition: opacity .6s ease .1s;
+      }
+      #board.writing .idle-mark { opacity: 0; }
+      /* 爻条与结果卡同源同色：实色 #2c2925 / 动爻 #a63b2a，全不透明 */
       #board :global(.bar) {
-        fill: var(--ink);
+        fill: #2c2925;
         opacity: 0;
         transform: scaleX(.55);
         transform-box: fill-box;
         transform-origin: center;
         transition: transform .5s cubic-bezier(.22, 1, .36, 1), opacity .5s ease;
       }
-      #board :global(.bar.shown) { opacity: .85; transform: scaleX(1); }
-      #board :global(.bar.moving) { fill: var(--accent); }
+      #board :global(.bar.shown) { opacity: 1; transform: scaleX(1); }
+      #board :global(.bar.moving) { fill: #a63b2a; }
 
       .ritual-btn {
         position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
@@ -197,11 +208,46 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
       .result-judgment { font-size: .95rem; line-height: 1.95; color: #2c2925; margin-bottom: 8px; }
       .result-interp { font-size: .85rem; line-height: 1.9; color: #4a453d; margin-bottom: 16px; }
       .result-card .btn-sm { font-size: .8rem; padding: 9px 22px; border-color: rgba(27,26,23,.4); color: #1b1a17; }
+      .result-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .result-actions .btn { margin-top: 0; padding: 9px 16px; }
       :global(.glyph) { display: flex; flex-direction: column; gap: 6px; width: 132px; margin: 12px 0 14px; }
       :global(.glyph-row) { display: flex; gap: 8px; height: 7px; }
       :global(.glyph-bar) { flex: 1; background: #2c2925; border-radius: 1px; }
       :global(.glyph-row.moving .glyph-bar) { background: #a63b2a; box-shadow: 0 0 6px rgba(166,59,42,.35); }
       .result-sub { font-size: .8rem; color: #5c5549; letter-spacing: .04em; margin: 2px 0; }
+      /* 装卦表：细线纸面表格（行节点由 reading-view.ts 运行时创建，故走 :global）；
+         table-layout:fixed + 百分比列宽，移动端卡片内不横向溢出，随结果卡纵向滚动 */
+      #resultInstall { margin: 6px 0 14px; }
+      #resultInstall :global(table) {
+        width: 100%; max-width: 100%;
+        border-collapse: collapse; table-layout: fixed;
+        font-size: .72rem; line-height: 1.75; letter-spacing: .04em;
+        color: #2c2925;
+      }
+      #resultInstall :global(th) {
+        font-weight: 400; text-align: center; color: #6b6357;
+        font-size: .66rem; letter-spacing: .1em;
+        padding: 1px 0 3px;
+        border-bottom: 1px solid rgba(27, 26, 23, .3);
+      }
+      #resultInstall :global(td) {
+        text-align: center; padding: 2px 0;
+        border-bottom: 1px solid rgba(27, 26, 23, .14);
+      }
+      #resultInstall :global(tr:last-child td) { border-bottom: none; }
+      /* 列宽：爻位 | 六亲·干支 | 六兽 | 世应 | 旬空 */
+      #resultInstall :global(th:nth-child(1)) { width: 12%; }
+      #resultInstall :global(th:nth-child(2)) { width: 34%; }
+      #resultInstall :global(th:nth-child(3)) { width: 20%; }
+      #resultInstall :global(th:nth-child(4)) { width: 14%; }
+      #resultInstall :global(th:nth-child(5)) { width: 20%; }
+      /* 世应与旬空的小字标记 */
+      #resultInstall :global(.inst-mark) {
+        font-size: .64rem; letter-spacing: .06em; color: #6b6357;
+      }
+      /* 动爻整行朱砂（含行内小字标记） */
+      #resultInstall :global(tr.inst-moving) { color: #a63b2a; }
+      #resultInstall :global(tr.inst-moving .inst-mark) { color: inherit; }
       .sound-btn {
         position: fixed; top: 18px; right: 18px; z-index: 5;
         background: var(--chip-bg); color: var(--chip-text);
@@ -307,12 +353,27 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
     <canvas id="scene" aria-hidden="true"></canvas>
 
     <svg id="board" viewBox="0 0 128 150" aria-hidden="true">
+      <defs>
+        <!-- 宣纸纤维：fractalNoise 压成稀疏墨点，叠在签纸上 -->
+        <filter id="slipGrain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="2" seed="17" stitchTiles="stitch" result="noise" />
+          <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.24  0 0 0 0 0.21  0 0 0 0 0.16  0.7 0.7 0.7 0 -1.1" />
+        </filter>
+        <clipPath id="slipClip"><rect x="1.5" y="1.5" width="125" height="147" rx="3" /></clipPath>
+      </defs>
       <rect class="slip" x="1.5" y="1.5" width="125" height="147" rx="3"></rect>
+      <rect class="grain" x="1.5" y="1.5" width="125" height="147" filter="url(#slipGrain)" clip-path="url(#slipClip)"></rect>
+      <g id="boardIdle">
+        <text class="idle-mark" x="64" y="42">掷</text>
+        <text class="idle-mark" x="64" y="66">币</text>
+        <text class="idle-mark" x="64" y="90">六</text>
+        <text class="idle-mark" x="64" y="114">次</text>
+      </g>
       <g id="boardRows"></g>
     </svg>
 
     <button id="ritualBtn" class="btn ritual-btn" type="button">抽 取 一 卦</button>
-    <button id="soundBtn" class="sound-btn" type="button" aria-pressed="false">声音 · 关</button>
+    <button id="soundBtn" class="sound-btn" type="button" aria-pressed="false">音乐·关</button>
 
     <section id="result" class="result-card" aria-live="polite">
       <div class="result-eyebrow">第 <span id="resultNumber"></span> 卦</div>
@@ -322,11 +383,15 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
       <div id="resultGlyph" class="glyph" aria-hidden="true"></div>
       <p id="resultHexes" class="result-sub"></p>
       <p id="resultMoving" class="result-sub"></p>
+      <div id="resultInstall"></div>
       <p id="resultJudgment" class="result-judgment"></p>
       <p id="resultImage" class="result-image"></p>
       <p id="resultInterp" class="result-interp"></p>
       <p id="resultSource" class="result-source"></p>
-      <button id="againBtn" class="btn btn-sm" type="button">再 占 一 卦</button>
+      <div class="result-actions">
+        <button id="againBtn" class="btn btn-sm" type="button">再 占 一 卦</button>
+        <button id="copyLinkBtn" class="btn btn-sm" type="button">复 制 链 接</button>
+      </div>
     </section>
     <div id="ritualProgress" class="ritual-progress" aria-hidden="true"></div>
     <nav class="corner-nav" aria-label="资料">
@@ -348,18 +413,29 @@ const displayFont = `@font-face{font-family:'Noto Serif SC';src:url('${base}font
     <script>
       performance.mark('html:ready')
       import { ambient } from '../lib/ambient'
+      import { music } from '../lib/music'
       import hexagrams from '../data/hexagrams.json'
       import { bindPanels, saveRecord } from '../lib/archive'
+      import { initShareLink } from '../lib/reading-view'
       import type { Hexagram } from '../lib/hexagram'
+
+      // 声音开关语义升级为「音乐」：开 = music.start()（默认关，用户手势内启动）；
+      // 风声与钟磬跟随开关，音量压低作衬底（见 lib/ambient.ts）。
       const soundBtn = document.getElementById('soundBtn')
       const syncSound = () => {
-        if (soundBtn) soundBtn.textContent = ambient.muted ? '声音 · 关' : '声音 · 开'
+        if (!soundBtn) return
+        soundBtn.textContent = music.muted ? '音乐·关' : '音乐·开'
+        soundBtn.setAttribute('aria-pressed', String(!music.muted))
       }
       soundBtn?.addEventListener('click', () => {
-        ambient.toggle()
+        const on = music.toggle() // toggle 由用户手势触发，满足 resume 前提
+        ambient.setSound(on)
         syncSound()
       })
+      // 开关统一为「音乐」后，对齐旧版风声开关的持久化状态（默认关，此路径不发声）
+      if (ambient.muted !== music.muted) ambient.setSound(!music.muted)
       syncSound()
+      initShareLink()
 
       window.addEventListener('ritual:complete', (event) => {
         const detail = (event as CustomEvent<{ values: number[] }>).detail

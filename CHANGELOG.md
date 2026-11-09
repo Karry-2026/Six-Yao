@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- 真六爻装卦：纳甲/世应/六亲/六兽/旬空与用神旺衰简断，纯函数实装于 `src/lib/domain/`，装卦全表由脚本生成并纳入 `npm run verify` 校验（[ADR-0002](docs/adr/0002-full-najia-domain.md)）
+- 五声音律背景音乐：WebAudio Karplus–Strong 拨弦合成五声音阶，律制支持三分损益/十二平均律，默认静音，右上角开关
+- 分享链接：`?hex=` 六位爻值直达卦象结果
+- 结果卡装卦分层：卦象图 → 装卦表（爻位/六亲·干支/六兽/世应/旬空，动爻整行朱砂）→ 断语 → 卦爻辞 → 白话
+
 ### Changed
 
 - 渲染层重写：放弃 three.js 3D 庭院，改为 Canvas2D/SVG 程序化水墨——宣纸、远山、木案、香炉、落款朱印，四时氛围（晴昼/烟雨/暮夜/雪夜）保留（[ADR-0001](docs/adr/0001-replace-3d-with-2d-ink.md)）
@@ -17,7 +24,7 @@
 
 ### 计划
 
-- v3 下一站：补全真六爻装卦体系（纳甲/世应/六亲/六兽/旬空，[ADR-0002](docs/adr/0002-full-najia-domain.md)）。进展见 [ROADMAP](docs/ROADMAP.md)。
+- v3 剩余：64 卦详情静态页、移动端与键盘 a11y 走查（M3），随后发布 v3.0.0（M4）。进展见 [ROADMAP](docs/ROADMAP.md)。
 
 ## [2.5.0] - 2026-10-18
 

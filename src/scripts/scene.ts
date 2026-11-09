@@ -2,7 +2,7 @@
 // 起卦流程在 ritual.ts，这里只听事件做视觉。
 
 import { THEMES, resolveTheme, type ThemeConfig } from './ink/themes'
-import { paintStatic, makeCoinSprites, ANCHORS } from './ink/paint'
+import { paintStatic, makeCoinSprites, tableYFrac } from './ink/paint'
 
 interface Puff {
   x: number
@@ -115,7 +115,7 @@ function start(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
   const coinAnim: CoinAnim = { active: false, start: 0, faces: [false, false, false] }
 
   const coinLayout = () => {
-    const cy = dims.h * ANCHORS.tableY + 4
+    const cy = dims.h * tableYFrac(dims) + 4
     const scale = Math.max(Math.min(dims.w / 900, 1.15), 0.5)
     const size = (coinSprites.size / dpr) * scale
     const gap = size * 1.12

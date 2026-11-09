@@ -16,6 +16,11 @@ export const ANCHORS = {
   boardY: 0.43,
 } as const
 
+/** 案桌纵向锚点：竖屏（高明显大于宽）时整组上移，给底部按钮与桌影留出一档间距 */
+export function tableYFrac({ w, h }: SceneDims): number {
+  return h > w * 1.15 ? 0.63 : ANCHORS.tableY
+}
+
 /** 稳定伪随机：同一主题/尺寸下重绘不变 */
 function mulberry32(seed: number): () => number {
   return function () {
@@ -167,7 +172,7 @@ function paintTable(ctx: CanvasRenderingContext2D, { w, h }: SceneDims, theme: T
   const tw = Math.min(w * 0.54, 660)
   const th = Math.max(Math.min(h * 0.042, 40), 24)
   const x0 = (w - tw) / 2
-  const y0 = h * ANCHORS.tableY
+  const y0 = h * tableYFrac({ w, h })
 
   // 地面接触阴影
   ctx.fillStyle = withAlpha(theme.ink, 0.1)
@@ -208,10 +213,10 @@ function paintTable(ctx: CanvasRenderingContext2D, { w, h }: SceneDims, theme: T
   }
   ctx.restore()
 
-  // 顶缘受光与底缘墨线
+  // 顶缘受光与底缘墨线（描边两主题统一为深墨，夜景不再泛白）
   ctx.fillStyle = 'rgba(255,244,214,0.14)'
   ctx.fillRect(x0, y0, tw, 1.5)
-  ctx.strokeStyle = withAlpha(theme.ink, theme.isDay ? 0.55 : 0.75)
+  ctx.strokeStyle = 'rgba(28,20,12,0.6)'
   ctx.lineWidth = 1.4
   roundRect(ctx, x0, y0, tw, th, 3)
   ctx.stroke()
@@ -226,7 +231,7 @@ function paintTable(ctx: CanvasRenderingContext2D, { w, h }: SceneDims, theme: T
 function censerAnchor({ w, h }: SceneDims, tw: number, th: number, theme: ThemeConfig): { x: number; y: number } {
   const s = Math.max(h * 0.024, 12)
   // 三足落定在案面上：足底 = 案面顶
-  return { x: w / 2 - tw * 0.33, y: h * ANCHORS.tableY - s * 0.42 }
+  return { x: w / 2 - tw * 0.33, y: h * tableYFrac({ w, h }) - s * 0.42 }
 }
 
 /** 香炉：三足青铜小炉，坐于案左 */

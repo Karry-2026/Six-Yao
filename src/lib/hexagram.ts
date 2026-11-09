@@ -1,4 +1,5 @@
 import hexagrams from '../data/hexagrams.json'
+import { type InstalledHexagram, type InstalledHexagramBase, install, installLines } from './domain/install.ts'
 
 export type Yao = 6 | 7 | 8 | 9
 
@@ -27,6 +28,20 @@ export interface Reading {
   changedHex: Hexagram | null
   mutualHex: Hexagram
   values: Yao[]
+  /**
+   * 装卦结果（可选字段，向后兼容）：
+   * - `read(values)` 不带日期：卦画层面装卦——纳甲干支、五行、六亲、世应、爻题
+   *   （`InstalledHexagramBase`），**不含**六兽与旬空（二者随起卦日而起）；
+   * - `read(values, dateGanzhi)` 带日干支：完整装卦（`InstalledHexagram`），
+   *   在前者基础上另含六兽、旬空标记、动爻标记与当日干支/旬名。
+   * 运行时判别用 {@link isFullInstall}；旧调用方（不传日期）字段形状不变。
+   */
+  installed?: InstalledHexagramBase | InstalledHexagram
+}
+
+/** 判断装卦结果是否为随日起装的完整装卦（含六兽与旬空） */
+export function isFullInstall(installed: InstalledHexagramBase | InstalledHexagram): installed is InstalledHexagram {
+  return 'xunkongBranches' in installed
 }
 
 const byKey = new Map<string, Hexagram>()
@@ -69,13 +84,19 @@ export function changedLines(lines: number[], moving: number[]): number[] {
   return lines.map((line, index) => (moving.includes(index) ? (line === 1 ? 0 : 1) : line))
 }
 
-export function read(values: Yao[]): Reading {
+/**
+ * 由铜钱爻值（6-9）读出一卦。
+ * - `read(values)`：向后兼容，装卦到纳甲/六亲/世应层（无六兽旬空）；
+ * - `read(values, dateGanzhi)`：另装六兽与旬空（随起卦日干支），见 {@link Reading.installed}。
+ */
+export function read(values: Yao[], dateGanzhi?: string | number): Reading {
   const primary = toLines(values)
   const moving = values
     .map((value, index) => (isMoving(value) ? index : -1))
     .filter((index) => index >= 0)
   const changed = moving.length > 0 ? changedLines(primary, moving) : null
   const mutual = mutualLines(primary)
+  const installed = dateGanzhi === undefined ? installLines(primary) : install(values, dateGanzhi)
   return {
     primary,
     moving,
@@ -85,5 +106,6 @@ export function read(values: Yao[]): Reading {
     primaryHex: lookup(primary),
     changedHex: changed ? lookup(changed) : null,
     mutualHex: lookup(mutual),
+    installed,
   }
 }
